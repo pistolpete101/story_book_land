@@ -1,0 +1,49 @@
+---
+name: features-best-practices.mdc
+description: Best practices and user flow guidelines for feature development in this project
+globs: []
+alwaysApply: false
+---
+
+# Best Practices
+
+- Adapt file globs and structure to match your project's needs.
+- Follow best practices for each major library/framework used in your stack.
+- Maintain clear, modular, and well-documented code.
+- Ensure accessibility, performance, and maintainability in all features.
+- Organize tests and stories for components and features.
+- Use type safety and consistent coding standards throughout the codebase.
+
+---
+
+# User Flow
+
+🏁 **Onboarding** → **Dashboard** → **My Library (Hub)**
+
+From **My Library**, user chooses:
+
+- 📖 **Read Books** → **Reading Experience** → Back to Library
+- ✍️ **Story Builder** → **Genre** → **Character** → **Story** → **Enhancements** → **Preview & Publish** → **Preview Pages** → Back to Library
+
+---
+
+## 📄 **Preview Pages Feature**
+
+- On the **Preview & Publish** step, users are shown a **Preview Pages** screen.
+- All pages created in the story are displayed in a horizontally scrollable view.
+- Users can:
+  - **Select** a page to focus or highlight it.
+  - **Review** the content of each page.
+  - **Edit** any page directly from the preview.
+  - **Add** new pages to the story.
+  - **Review** the entire story flow before publishing.
+- The scrollable interface allows swiping left/right to navigate through pages.
+- Each page preview should be clearly labeled and accessible for editing or selection.
+
+Other branches from the Dashboard:
+
+- 📊 **Achievements**
+- ⚙️ **Settings**
+- 👨‍👩‍👧 **Parent Dashboard**
+
+> (Optional) Consider layering in age-based genre paths (4–6, 6–8, 9–11) under the Choose Genre step to clarify how age unlocks content in the builder.
