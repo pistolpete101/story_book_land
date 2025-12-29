@@ -89,7 +89,7 @@ export default function EnhancementsView({
   ];
 
   const handleEnhancementToggle = (enhancementId: string) => {
-    setEnhancements(prev => ({
+    setEnhancements((prev: Record<string, boolean>) => ({
       ...prev,
       [enhancementId]: !prev[enhancementId],
     }));

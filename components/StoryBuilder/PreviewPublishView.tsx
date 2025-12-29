@@ -70,7 +70,7 @@ export default function PreviewPublishView({
       genre: storyData.genre || 'Unknown',
     };
     onComplete(finalStoryData);
-    onStoryComplete(finalStoryData);
+    onStoryComplete();
   };
 
   const handleSaveDraft = () => {

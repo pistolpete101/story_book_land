@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/hooks/useAuth';
 import { User } from '@/types/User';
 import { ArrowLeft, User as UserIcon, Bell, Palette, Shield, HelpCircle, LogOut, Save } from 'lucide-react';
 
@@ -12,7 +11,6 @@ interface SettingsViewProps {
 }
 
 export default function SettingsView({ user, onBack }: SettingsViewProps) {
-  const { signOut } = useAuth();
   const [settings, setSettings] = useState({
     profile: {
       name: user.name,
@@ -71,8 +69,10 @@ export default function SettingsView({ user, onBack }: SettingsViewProps) {
     // Show success message
   };
 
-  const handleLogout = async () => {
-    await signOut({ redirectUrl: '/sign-in' });
+  const handleLogout = () => {
+    // Clear local storage and reload page
+    localStorage.clear();
+    window.location.reload();
   };
 
   const renderProfileTab = () => (

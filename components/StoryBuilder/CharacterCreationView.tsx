@@ -152,7 +152,9 @@ export default function CharacterCreationView({
     setNewCharacter(prev => ({
       ...prev,
       personality: {
-        ...prev.personality,
+        traits: prev.personality?.traits || [],
+        likes: prev.personality?.likes || [],
+        dislikes: prev.personality?.dislikes || [],
         [type]: updatedTraits,
       },
     }));

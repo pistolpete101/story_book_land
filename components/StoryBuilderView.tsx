@@ -10,7 +10,6 @@ import CharacterCreationView from './StoryBuilder/CharacterCreationView';
 import StoryWritingView from './StoryBuilder/StoryWritingView';
 import EnhancementsView from './StoryBuilder/EnhancementsView';
 import PreviewPublishView from './StoryBuilder/PreviewPublishView';
-import FullStoryPreviewView from './StoryBuilder/FullStoryPreviewView';
 
 interface StoryBuilderViewProps {
   user: User;

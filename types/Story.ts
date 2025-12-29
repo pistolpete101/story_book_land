@@ -1,3 +1,5 @@
+import { Character } from './Character';
+
 export interface Story {
   id: string;
   title: string;

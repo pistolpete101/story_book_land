@@ -84,7 +84,7 @@ export default function BookReadingView({ book, onBack }: BookReadingViewProps) 
               </button>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{book.title}</h1>
-                <p className="text-sm text-gray-600">by {typeof book.author === 'object' ? book.author?.name || 'Unknown' : book.author || 'Unknown'}</p>
+                <p className="text-sm text-gray-600">by {book.author || 'Unknown'}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -270,7 +270,7 @@ export default function BookReadingView({ book, onBack }: BookReadingViewProps) 
         {/* Page Indicators */}
         <div className="flex justify-center mt-8">
           <div className="flex space-x-2">
-            {pages.map((_, index) => (
+            {pages.map((_: unknown, index: number) => (
               <button
                 key={index}
                 onClick={() => setCurrentPage(index + 1)}

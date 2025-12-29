@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import MobileWarning from '@/components/MobileWarning'
-import SessionProvider from '@/components/SessionProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -34,15 +33,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <SessionProvider>
-      <html lang="en" suppressHydrationWarning>
-        <body className={inter.className}>
-          <MobileWarning />
-          <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 safe-area-inset">
-            {children}
-          </div>
-        </body>
-      </html>
-    </SessionProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <MobileWarning />
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 safe-area-inset">
+          {children}
+        </div>
+      </body>
+    </html>
   )
 }
