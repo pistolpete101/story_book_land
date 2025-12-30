@@ -63,9 +63,8 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen pt-0 px-4 tablet:px-6 tablet-lg:px-8 pb-2 tablet:pb-4 safe-area-inset overflow-hidden flex flex-col">
+    <div className="min-h-screen pt-0 px-4 tablet:px-6 tablet-lg:px-8 pb-2 tablet:pb-4 safe-area-inset">
       <DeviceRecommendation />
-      <div className="flex-1 min-h-0 overflow-hidden">
       <AnimatePresence mode="wait">
         {showOnboarding || !user ? (
           <motion.div
@@ -89,7 +88,6 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      </div>
     </div>
   );
 }

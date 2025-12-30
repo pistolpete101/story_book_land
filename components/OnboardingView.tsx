@@ -254,8 +254,8 @@ export default function OnboardingView({ onComplete }: OnboardingViewProps) {
   ];
 
   return (
-    <div className="h-screen flex items-center justify-center p-2 tablet:p-4 overflow-hidden">
-      <div className="max-w-4xl w-full h-full flex flex-col justify-center">
+    <div className="min-h-screen flex items-center justify-center p-2 tablet:p-4 py-4 tablet:py-8">
+      <div className="max-w-4xl w-full flex flex-col">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -263,7 +263,7 @@ export default function OnboardingView({ onComplete }: OnboardingViewProps) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="card p-4 tablet:p-6 max-h-full overflow-y-auto"
+            className="card p-4 tablet:p-6"
           >
             {steps[step].content}
             
