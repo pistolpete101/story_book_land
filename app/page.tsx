@@ -103,7 +103,10 @@ export default function Home() {
           }
         }
         if (savedReadingLevel) {
-          testUser.preferences.readingLevel = savedReadingLevel;
+          const validLevels = ['beginner', 'intermediate', 'advanced'] as const;
+          if (validLevels.includes(savedReadingLevel as any)) {
+            testUser.preferences.readingLevel = savedReadingLevel as 'beginner' | 'intermediate' | 'advanced';
+          }
         }
       }
       setUser(testUser);
