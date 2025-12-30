@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User } from '@/types/User';
-import { ArrowRight, Plus, Trash2, Edit3, Image, Type, Palette } from 'lucide-react';
+import { ArrowRight, Plus, Trash2, Edit3, Image, Type, Palette, X } from 'lucide-react';
 
 interface StoryWritingViewProps {
   user: User;
@@ -42,6 +42,7 @@ export default function StoryWritingView({
   const [chapters, setChapters] = useState<StoryChapter[]>(storyData.chapters || []);
   const [showChapterForm, setShowChapterForm] = useState(false);
   const [editingChapter, setEditingChapter] = useState<StoryChapter | null>(null);
+  const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(-1); // -1 means new chapter
   const [newChapter, setNewChapter] = useState<Partial<StoryChapter>>({
     title: '',
     content: '',
@@ -53,6 +54,10 @@ export default function StoryWritingView({
       weather: '',
     },
   });
+  const [showCharacterCards, setShowCharacterCards] = useState(true);
+
+  // Get characters from storyData
+  const characters = storyData.characters || [];
 
   const layoutOptions = [
     { id: 'text-only', name: 'Text Only', icon: Type, description: 'Just words' },
@@ -64,7 +69,7 @@ export default function StoryWritingView({
   const timeOfDayOptions = ['Morning', 'Afternoon', 'Evening', 'Night', 'Dawn', 'Dusk'];
   const weatherOptions = ['Sunny', 'Cloudy', 'Rainy', 'Snowy', 'Windy', 'Foggy', 'Stormy'];
 
-  const handleAddChapter = () => {
+  const handleAddChapter = (stayOpen: boolean = false) => {
     if (newChapter.title && newChapter.content) {
       const chapter: StoryChapter = {
         id: Math.random().toString(36).substr(2, 9),
@@ -80,47 +85,179 @@ export default function StoryWritingView({
         },
       };
       setChapters([...chapters, chapter]);
-      setNewChapter({
-        title: '',
-        content: '',
-        layout: 'text-only',
-        characters: [],
-        settings: {
-          location: '',
-          timeOfDay: '',
-          weather: '',
-        },
-      });
-      setShowChapterForm(false);
+      
+      if (stayOpen) {
+        // Move to next chapter (new one)
+        setCurrentChapterIndex(-1);
+        setNewChapter({
+          title: '',
+          content: '',
+          layout: 'text-only',
+          characters: [],
+          settings: {
+            location: '',
+            timeOfDay: '',
+            weather: '',
+          },
+        });
+      } else {
+        setNewChapter({
+          title: '',
+          content: '',
+          layout: 'text-only',
+          characters: [],
+          settings: {
+            location: '',
+            timeOfDay: '',
+            weather: '',
+          },
+        });
+        setShowChapterForm(false);
+        setCurrentChapterIndex(-1);
+      }
     }
   };
 
   const handleEditChapter = (chapter: StoryChapter) => {
+    const chapterIndex = chapters.findIndex(c => c.id === chapter.id);
     setEditingChapter(chapter);
+    setCurrentChapterIndex(chapterIndex);
     setNewChapter(chapter);
     setShowChapterForm(true);
   };
 
-  const handleUpdateChapter = () => {
+  const handleNavigateToChapter = (direction: 'next' | 'prev') => {
+    // Save current chapter first
+    if (currentChapterIndex === -1) {
+      // Currently creating a new chapter - save it first
+      if (newChapter.title && newChapter.content) {
+        const chapter: StoryChapter = {
+          id: Math.random().toString(36).substr(2, 9),
+          chapterNumber: chapters.length + 1,
+          title: newChapter.title!,
+          content: newChapter.content!,
+          layout: newChapter.layout || 'text-only',
+          characters: newChapter.characters || [],
+          settings: newChapter.settings || {
+            location: '',
+            timeOfDay: '',
+            weather: '',
+          },
+        };
+        const updatedChapters = [...chapters, chapter];
+        setChapters(updatedChapters);
+        
+        // Navigate based on direction
+        if (direction === 'next') {
+          // Move to new chapter (stay at -1)
+          setCurrentChapterIndex(-1);
+          setEditingChapter(null);
+          setNewChapter({
+            title: '',
+            content: '',
+            layout: 'text-only',
+            characters: [],
+            settings: {
+              location: '',
+              timeOfDay: '',
+              weather: '',
+            },
+          });
+        }
+        return;
+      }
+    } else {
+      // Currently editing - save changes first
+      if (newChapter.title && newChapter.content && editingChapter) {
+        const updatedChapters = chapters.map(chap =>
+          chap.id === editingChapter.id
+            ? {
+                ...chap,
+                title: newChapter.title!,
+                content: newChapter.content!,
+                layout: newChapter.layout || 'text-only',
+                characters: newChapter.characters || [],
+                settings: newChapter.settings || {
+                  location: '',
+                  timeOfDay: '',
+                  weather: '',
+                },
+              }
+            : chap
+        );
+        setChapters(updatedChapters);
+        
+        // Navigate based on direction
+        if (direction === 'next') {
+          if (currentChapterIndex < updatedChapters.length - 1) {
+            const nextChapter = updatedChapters[currentChapterIndex + 1];
+            setCurrentChapterIndex(currentChapterIndex + 1);
+            setEditingChapter(nextChapter);
+            setNewChapter(nextChapter);
+          } else {
+            // At last chapter, move to new chapter
+            setCurrentChapterIndex(-1);
+            setEditingChapter(null);
+            setNewChapter({
+              title: '',
+              content: '',
+              layout: 'text-only',
+              characters: [],
+              settings: {
+                location: '',
+                timeOfDay: '',
+                weather: '',
+              },
+            });
+          }
+        } else {
+          // Previous
+          if (currentChapterIndex > 0) {
+            const prevChapter = updatedChapters[currentChapterIndex - 1];
+            setCurrentChapterIndex(currentChapterIndex - 1);
+            setEditingChapter(prevChapter);
+            setNewChapter(prevChapter);
+          }
+        }
+      }
+    }
+  };
+
+  const handleUpdateChapter = (stayOpen: boolean = false) => {
     if (editingChapter && newChapter.title && newChapter.content) {
-      setChapters(chapters.map(c => 
-        c.id === editingChapter.id 
-          ? { ...c, ...newChapter } as StoryChapter
-          : c
+      setChapters(chapters.map(chap =>
+        chap.id === editingChapter.id
+          ? {
+              ...chap,
+              title: newChapter.title!,
+              content: newChapter.content!,
+              layout: newChapter.layout || 'text-only',
+              characters: newChapter.characters || [],
+              settings: newChapter.settings || {
+                location: '',
+                timeOfDay: '',
+                weather: '',
+              },
+            }
+          : chap
       ));
-      setEditingChapter(null);
-      setNewChapter({
-        title: '',
-        content: '',
-        layout: 'text-only',
-        characters: [],
-        settings: {
-          location: '',
-          timeOfDay: '',
-          weather: '',
-        },
-      });
-      setShowChapterForm(false);
+      
+      if (!stayOpen) {
+        setEditingChapter(null);
+        setCurrentChapterIndex(-1);
+        setNewChapter({
+          title: '',
+          content: '',
+          layout: 'text-only',
+          characters: [],
+          settings: {
+            location: '',
+            timeOfDay: '',
+            weather: '',
+          },
+        });
+        setShowChapterForm(false);
+      }
     }
   };
 
@@ -163,6 +300,83 @@ export default function StoryWritingView({
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-12"
       >
+      {/* Character Cards Section */}
+      {characters.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">Your Characters</h3>
+            <button
+              onClick={() => setShowCharacterCards(!showCharacterCards)}
+              className="text-sm text-primary-600 hover:text-primary-700"
+            >
+              {showCharacterCards ? 'Hide' : 'Show'} Characters
+            </button>
+          </div>
+          {showCharacterCards && (
+            <div className="grid grid-cols-1 tablet:grid-cols-2 tablet-lg:grid-cols-3 desktop:grid-cols-4 gap-4 mb-6">
+              {characters.map((character: any) => (
+                <motion.div
+                  key={character.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="card p-4 border-2 border-gray-200 hover:border-primary-300 transition-colors"
+                >
+                  <div className="flex items-start space-x-3 mb-3">
+                    {character.image ? (
+                      <img
+                        src={character.image}
+                        alt={character.name}
+                        className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-r from-primary-400 to-secondary-400 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
+                        {character.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-1">{character.name}</h4>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        character.role === 'protagonist' ? 'bg-green-100 text-green-700' :
+                        character.role === 'antagonist' ? 'bg-red-100 text-red-700' :
+                        character.role === 'supporting' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {character.role}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-2 line-clamp-2">{character.description}</p>
+                  {character.personality?.traits?.length > 0 && (
+                    <div className="mb-2">
+                      <div className="text-xs font-medium text-gray-700 mb-1">Traits:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {character.personality.traits.slice(0, 3).map((trait: string, idx: number) => (
+                          <span key={idx} className="text-xs px-1.5 py-0.5 bg-primary-50 text-primary-700 rounded">
+                            {trait}
+                          </span>
+                        ))}
+                        {character.personality.traits.length > 3 && (
+                          <span className="text-xs text-gray-500">+{character.personality.traits.length - 3}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {character.appearance && (
+                    <div className="text-xs text-gray-500 space-y-0.5">
+                      {character.appearance.hairColor && (
+                        <div>Hair: {character.appearance.hairColor}</div>
+                      )}
+                      {character.appearance.eyeColor && (
+                        <div>Eyes: {character.appearance.eyeColor}</div>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
         <div className="text-6xl mb-4">✍️</div>
         <h2 className="text-4xl font-bold text-gradient mb-4">
           Write Your Story
@@ -252,7 +466,22 @@ export default function StoryWritingView({
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => setShowChapterForm(true)}
+          onClick={() => {
+            setCurrentChapterIndex(-1);
+            setEditingChapter(null);
+            setNewChapter({
+              title: '',
+              content: '',
+              layout: 'text-only',
+              characters: [],
+              settings: {
+                location: '',
+                timeOfDay: '',
+                weather: '',
+              },
+            });
+            setShowChapterForm(true);
+          }}
           className="h-80 card p-6 border-2 border-dashed border-gray-300 hover:border-primary-400 transition-colors flex flex-col items-center justify-center"
         >
           <Plus className="w-8 h-8 text-gray-400 mb-3" />
@@ -270,14 +499,46 @@ export default function StoryWritingView({
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[95vh] flex flex-col"
           >
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">
-              {editingChapter ? 'Edit Chapter' : 'Create New Chapter'}
-            </h3>
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <h3 className="text-2xl font-bold text-gray-900">
+                {editingChapter ? `Edit Chapter ${editingChapter.chapterNumber}` : 'Create New Chapter'}
+              </h3>
+              <div className="flex items-center space-x-3">
+                {editingChapter && (
+                  <div className="text-sm text-gray-500">
+                    Chapter {currentChapterIndex + 1} of {chapters.length}
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    setShowChapterForm(false);
+                    setEditingChapter(null);
+                    setCurrentChapterIndex(-1);
+                    setNewChapter({
+                      title: '',
+                      content: '',
+                      layout: 'text-only',
+                      characters: [],
+                      settings: {
+                        location: '',
+                        timeOfDay: '',
+                        weather: '',
+                      },
+                    });
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            </div>
 
-            <div className="space-y-6">
-              {/* Basic Info */}
+            <div className="flex-1 overflow-y-auto pr-2">
+            <div className="space-y-4">
+              {/* Basic Info - Title and Layout */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -309,23 +570,7 @@ export default function StoryWritingView({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Chapter Content
-                </label>
-                <textarea
-                  value={newChapter.content || ''}
-                  onChange={(e) => setNewChapter(prev => ({ ...prev, content: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  rows={6}
-                  placeholder="Write your story content here..."
-                />
-                <div className="text-right text-sm text-gray-500 mt-1">
-                  {newChapter.content?.split(' ').filter(word => word.length > 0).length || 0} words • {newChapter.content?.length || 0} characters
-                </div>
-              </div>
-
-              {/* Settings */}
+              {/* Settings - Location, Time, Weather */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -334,12 +579,12 @@ export default function StoryWritingView({
                   <input
                     type="text"
                     value={newChapter.settings?.location || ''}
-                    onChange={(e) => setNewChapter(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewChapter(prev => ({
+                      ...prev,
                       settings: { ...prev.settings, location: e.target.value }
                     }))}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="e.g., Magic Forest"
+                    placeholder="e.g., Forest, Castle, Beach"
                   />
                 </div>
                 <div>
@@ -348,8 +593,8 @@ export default function StoryWritingView({
                   </label>
                   <select
                     value={newChapter.settings?.timeOfDay || ''}
-                    onChange={(e) => setNewChapter(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewChapter(prev => ({
+                      ...prev,
                       settings: { ...prev.settings, timeOfDay: e.target.value }
                     }))}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -366,8 +611,8 @@ export default function StoryWritingView({
                   </label>
                   <select
                     value={newChapter.settings?.weather || ''}
-                    onChange={(e) => setNewChapter(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewChapter(prev => ({
+                      ...prev,
                       settings: { ...prev.settings, weather: e.target.value }
                     }))}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -379,42 +624,283 @@ export default function StoryWritingView({
                   </select>
                 </div>
               </div>
+
+              {/* Character Reference Cards in Form */}
+              {characters.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Character Reference</h4>
+                  <div className="grid grid-cols-2 tablet:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                    {characters.map((character: any) => (
+                      <div
+                        key={character.id}
+                        className="bg-white rounded-lg p-2 border border-gray-200 text-xs"
+                      >
+                        <div className="flex items-center space-x-2 mb-1">
+                          {character.image ? (
+                            <img
+                              src={character.image}
+                              alt={character.name}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-400 to-secondary-400 flex items-center justify-center text-white font-bold">
+                              {character.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-gray-900 truncate">{character.name}</div>
+                            <div className="text-gray-500 text-xs">{character.role}</div>
+                          </div>
+                        </div>
+                        <div className="text-gray-600 line-clamp-2 mb-1">{character.description}</div>
+                        {character.personality?.traits?.length > 0 && (
+                          <div className="flex flex-wrap gap-0.5">
+                            {character.personality.traits.slice(0, 2).map((trait: string, idx: number) => (
+                              <span key={idx} className="text-xs px-1 py-0.5 bg-primary-100 text-primary-700 rounded">
+                                {trait}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Content */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Chapter Content
+                </label>
+                <textarea
+                  value={newChapter.content || ''}
+                  onChange={(e) => setNewChapter(prev => ({ ...prev, content: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  rows={6}
+                  placeholder="Write your chapter content here..."
+                />
+                <div className="text-right text-sm text-gray-500 mt-1">
+                  {newChapter.content?.split(' ').filter(word => word.length > 0).length || 0} words • {newChapter.content?.length || 0} characters
+                </div>
+              </div>
+
+              {/* Character Selection */}
+              {characters.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Characters in this Chapter (optional)
+                    </label>
+                    {/* Form Actions - on same line as character label */}
+                    <div className="flex items-center space-x-2">
+                      {((editingChapter && currentChapterIndex > 0) || (!editingChapter && chapters.length > 0)) && (
+                        <button
+                          onClick={() => {
+                            if (currentChapterIndex === -1 && chapters.length > 0) {
+                              // Creating new chapter - go to last chapter
+                              const lastChapter = chapters[chapters.length - 1];
+                              setCurrentChapterIndex(chapters.length - 1);
+                              setEditingChapter(lastChapter);
+                              setNewChapter(lastChapter);
+                            } else {
+                              // Navigate to previous
+                              handleNavigateToChapter('prev');
+                            }
+                          }}
+                          className="flex items-center space-x-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors"
+                        >
+                          <ArrowRight className="w-3 h-3 rotate-180" />
+                          <span>Previous</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setShowChapterForm(false);
+                          setEditingChapter(null);
+                          setCurrentChapterIndex(-1);
+                          setNewChapter({
+                            title: '',
+                            content: '',
+                            layout: 'text-only',
+                            characters: [],
+                            settings: {
+                              location: '',
+                              timeOfDay: '',
+                              weather: '',
+                            },
+                          });
+                        }}
+                        className="px-3 py-1.5 text-gray-600 hover:text-gray-800 text-sm transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => editingChapter ? handleUpdateChapter() : handleAddChapter()}
+                        disabled={!newChapter.title || !newChapter.content}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                          !newChapter.title || !newChapter.content
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'btn-primary'
+                        }`}
+                      >
+                        {editingChapter ? 'Update' : 'Add'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (editingChapter) {
+                            handleNavigateToChapter('next');
+                          } else {
+                            // Save current and create next
+                            handleNavigateToChapter('next');
+                          }
+                        }}
+                        disabled={!newChapter.title || !newChapter.content}
+                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                          !newChapter.title || !newChapter.content
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+                        }`}
+                      >
+                        <span>{editingChapter && currentChapterIndex < chapters.length - 1 ? 'Next' : 'Add & New'}</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 tablet:grid-cols-3 gap-2">
+                    {characters.map((character: any) => (
+                      <label
+                        key={character.id}
+                        className={`flex items-center space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${
+                          newChapter.characters?.includes(character.id)
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-200 hover:border-primary-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={newChapter.characters?.includes(character.id) || false}
+                          onChange={(e) => {
+                            const currentChars = newChapter.characters || [];
+                            if (e.target.checked) {
+                              setNewChapter(prev => ({
+                                ...prev,
+                                characters: [...currentChars, character.id]
+                              }));
+                            } else {
+                              setNewChapter(prev => ({
+                                ...prev,
+                                characters: currentChars.filter((id: string) => id !== character.id)
+                              }));
+                            }
+                          }}
+                          className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                        />
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          {character.image ? (
+                            <img
+                              src={character.image}
+                              alt={character.name}
+                              className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary-400 to-secondary-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              {character.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-sm font-medium text-gray-900 truncate">{character.name}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             </div>
 
-            {/* Form Actions */}
-            <div className="flex justify-end space-x-4 mt-8">
-              <button
-                onClick={() => {
-                  setShowChapterForm(false);
-                  setEditingChapter(null);
-                  setNewChapter({
-                    title: '',
-                    content: '',
-                    layout: 'text-only',
-                    characters: [],
-                    settings: {
-                      location: '',
-                      timeOfDay: '',
-                      weather: '',
-                    },
-                  });
-                }}
-                className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={editingChapter ? handleUpdateChapter : handleAddChapter}
-                disabled={!newChapter.title || !newChapter.content}
-                className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                  !newChapter.title || !newChapter.content
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'btn-primary'
-                }`}
-              >
-                {editingChapter ? 'Update Chapter' : 'Add Chapter'}
-              </button>
-            </div>
+            {/* Form Actions - only show if no characters section */}
+            {characters.length === 0 && (
+              <div className="flex justify-between items-center mt-8">
+                <div className="flex items-center space-x-2">
+                  {((editingChapter && currentChapterIndex > 0) || (!editingChapter && chapters.length > 0)) && (
+                    <button
+                      onClick={() => {
+                        if (currentChapterIndex === -1 && chapters.length > 0) {
+                          // Creating new chapter - go to last chapter
+                          const lastChapter = chapters[chapters.length - 1];
+                          setCurrentChapterIndex(chapters.length - 1);
+                          setEditingChapter(lastChapter);
+                          setNewChapter(lastChapter);
+                        } else {
+                          // Navigate to previous
+                          handleNavigateToChapter('prev');
+                        }
+                      }}
+                      className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors"
+                    >
+                      <ArrowRight className="w-4 h-4 rotate-180" />
+                      <span>Previous</span>
+                    </button>
+                  )}
+                </div>
+                
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => {
+                      setShowChapterForm(false);
+                      setEditingChapter(null);
+                      setCurrentChapterIndex(-1);
+                      setNewChapter({
+                        title: '',
+                        content: '',
+                        layout: 'text-only',
+                        characters: [],
+                        settings: {
+                          location: '',
+                          timeOfDay: '',
+                          weather: '',
+                        },
+                      });
+                    }}
+                    className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => editingChapter ? handleUpdateChapter() : handleAddChapter()}
+                    disabled={!newChapter.title || !newChapter.content}
+                    className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                      !newChapter.title || !newChapter.content
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'btn-primary'
+                    }`}
+                  >
+                    {editingChapter ? 'Update Chapter' : 'Add Chapter'}
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      if (editingChapter) {
+                        handleNavigateToChapter('next');
+                      } else {
+                        // Save current and create next
+                        handleNavigateToChapter('next');
+                      }
+                    }}
+                    disabled={!newChapter.title || !newChapter.content}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+                      !newChapter.title || !newChapter.content
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+                    }`}
+                  >
+                    <span>{editingChapter && currentChapterIndex < chapters.length - 1 ? 'Save & Next' : 'Add & New'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}

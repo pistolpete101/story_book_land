@@ -11,7 +11,7 @@ interface PreviewPublishViewProps {
   onNext: () => void;
   onPrevious: () => void;
   onComplete: (data: any) => void;
-  onStoryComplete: () => void;
+  onStoryComplete: (finalData?: any) => void;
   onEdit?: () => void; // Callback to go back to edit
   isFirstStep: boolean;
   isLastStep: boolean;
@@ -32,6 +32,9 @@ export default function PreviewPublishView({
   const [storyDescription, setStoryDescription] = useState(storyData.description || '');
   const [coverImage, setCoverImage] = useState(storyData.coverImage || '');
   const [showFullPreview, setShowFullPreview] = useState(false);
+  const [storyStatus, setStoryStatus] = useState<'draft' | 'published' | 'in-progress' | 'completed'>(
+    storyData.status || 'draft'
+  );
   const [publishSettings, setPublishSettings] = useState({
     isPublic: true,
     allowComments: true,
@@ -51,15 +54,17 @@ export default function PreviewPublishView({
       ? (existingAuthor.name || authorName)
       : (existingAuthor || authorName);
 
+    // When clicking "Publish Story", always set status to 'published'
     const finalStoryData = {
       ...storyData,
       title: storyTitle,
       description: storyDescription,
       coverImage: coverImage || '',
       publishSettings,
-      status: 'published',
-      publishedAt: new Date(),
-      id: Math.random().toString(36).substr(2, 9),
+      status: 'published', // Always set to published when clicking Publish button
+      isPublished: true, // Always true when publishing
+      publishedAt: new Date(), // Set published date
+      id: storyData.id || Math.random().toString(36).substr(2, 9),
       author: finalAuthorName, // Always a string
       readingTime: Math.ceil((storyData.chapters?.length || 0) * 2), // Estimate 2 minutes per chapter
       difficulty: 'easy',
@@ -69,8 +74,11 @@ export default function PreviewPublishView({
       pages: storyData.chapters?.length || 0,
       genre: storyData.genre || 'Unknown',
     };
+    // Update story data first
     onComplete(finalStoryData);
-    onStoryComplete();
+    // Then trigger story completion with the final data
+    // Pass the finalStoryData directly to ensure it's used
+    onStoryComplete(finalStoryData);
   };
 
   const handleSaveDraft = () => {
@@ -80,10 +88,28 @@ export default function PreviewPublishView({
       description: storyDescription,
       coverImage,
       publishSettings,
-      status: 'draft',
+      status: storyStatus,
+      isPublished: storyStatus === 'published',
+      publishedAt: storyStatus === 'published' ? new Date() : (storyData.publishedAt || undefined),
     };
     onComplete(finalStoryData);
-    onStoryComplete();
+    onStoryComplete(finalStoryData); // Pass finalStoryData to save it
+  };
+
+  // Save draft when going back from preview
+  const handleGoBack = () => {
+    // Save current preview state before going back
+    const draftData = {
+      ...storyData,
+      title: storyTitle,
+      description: storyDescription,
+      coverImage,
+      publishSettings,
+      status: storyStatus,
+      isPublished: storyStatus === 'published',
+    };
+    onComplete(draftData);
+    onPrevious();
   };
 
   if (showFullPreview) {
@@ -135,7 +161,12 @@ export default function PreviewPublishView({
           </button>
           <h2 className="text-lg tablet:text-xl font-bold text-gray-900">Full Story Preview</h2>
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              // Small delay to ensure DOM is ready
+              requestAnimationFrame(() => {
+                setTimeout(() => window.print(), 100);
+              });
+            }}
             className="flex items-center space-x-2 px-3 tablet:px-4 py-2 btn-primary text-sm tablet:text-base"
           >
             <Download className="w-4 h-4 tablet:w-5 tablet:h-5" />
@@ -145,12 +176,12 @@ export default function PreviewPublishView({
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          <div className="space-y-4 tablet:space-y-6 pb-6">
+          <div className="space-y-4 tablet:space-y-6 pb-6 print-container">
             {pagePairs.map((pair, pairIndex) => (
-              <div key={pairIndex} className="card p-3 tablet:p-4 print-spread">
-                <div className="grid grid-cols-1 tablet:grid-cols-2 gap-3 tablet:gap-4">
+              <div key={pairIndex} className="print-spread">
+                <div className="grid grid-cols-1 tablet:grid-cols-2 gap-3 tablet:gap-4 print-grid">
                   {/* Left Page */}
-                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 tablet:p-6 border-2 border-amber-200 min-h-[400px] tablet:min-h-[500px] flex flex-col relative print-page">
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 tablet:p-6 border-2 border-amber-200 min-h-[400px] tablet:min-h-[500px] flex flex-col relative print-page print-story-page">
                     {pair[0] && (
                       <>
                         {pair[0].isTOC ? (
@@ -212,7 +243,7 @@ export default function PreviewPublishView({
                   </div>
 
                   {/* Right Page */}
-                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 tablet:p-6 border-2 border-amber-200 min-h-[400px] tablet:min-h-[500px] flex flex-col relative print-page">
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 tablet:p-6 border-2 border-amber-200 min-h-[400px] tablet:min-h-[500px] flex flex-col relative print-page print-story-page">
                     {pair[1] ? (
                       <>
                         {pair[1].isTOC ? (
@@ -349,6 +380,31 @@ export default function PreviewPublishView({
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="https://example.com/cover.jpg"
                 />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Story Status
+                </label>
+                <select
+                  value={storyStatus}
+                  onChange={(e) => setStoryStatus(e.target.value as 'draft' | 'published' | 'in-progress' | 'completed')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="published">Published</option>
+                  <option value="completed">Completed</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {storyStatus === 'published' 
+                    ? 'Your story will be visible to others' 
+                    : storyStatus === 'draft'
+                    ? 'Your story is saved but not published'
+                    : storyStatus === 'in-progress'
+                    ? 'Your story is being worked on'
+                    : 'Your story is finished'}
+                </p>
               </div>
             </div>
           </div>
@@ -522,13 +578,26 @@ export default function PreviewPublishView({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center space-x-3 tablet:space-x-4"
+          className="flex flex-wrap gap-3 justify-center items-center"
         >
           <button
             onClick={handleSaveDraft}
             className="px-4 tablet:px-6 py-2 tablet:py-3 bg-gray-100 text-gray-700 rounded-lg tablet:rounded-xl font-semibold hover:bg-gray-200 transition-colors text-sm tablet:text-base"
           >
             Save as Draft
+          </button>
+          <button
+            onClick={() => {
+              setShowFullPreview(true);
+              // Wait for the preview to render before printing
+              setTimeout(() => {
+                window.print();
+              }, 500);
+            }}
+            className="px-4 tablet:px-6 py-2 tablet:py-3 bg-blue-100 text-blue-700 rounded-lg tablet:rounded-xl font-semibold hover:bg-blue-200 transition-colors text-sm tablet:text-base flex items-center"
+          >
+            <Download className="w-4 h-4 tablet:w-5 tablet:h-5 mr-2" />
+            Print Book
           </button>
           <button
             onClick={handlePublish}
@@ -547,7 +616,7 @@ export default function PreviewPublishView({
         {/* Navigation */}
         <div className="flex justify-between items-center">
           <button
-            onClick={onPrevious}
+            onClick={handleGoBack}
             className="flex items-center space-x-2 px-4 tablet:px-6 py-2 tablet:py-3 rounded-lg tablet:rounded-xl font-semibold text-primary-600 hover:bg-primary-50 transition-colors text-sm tablet:text-base"
           >
             <ArrowRight className="w-4 h-4 tablet:w-5 tablet:h-5 rotate-180" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '@/types/User';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
@@ -10,36 +10,37 @@ import CharacterCreationView from './StoryBuilder/CharacterCreationView';
 import StoryWritingView from './StoryBuilder/StoryWritingView';
 import EnhancementsView from './StoryBuilder/EnhancementsView';
 import PreviewPublishView from './StoryBuilder/PreviewPublishView';
+import { getStoryDraft, saveStoryDraft, clearStoryDraft, saveUserStory } from '@/lib/storage';
 
 interface StoryBuilderViewProps {
   user: User;
   onBack: () => void;
   onStoryPublished?: (story: any) => void;
+  editStory?: any; // Story to edit
 }
 
-export default function StoryBuilderView({ user, onBack, onStoryPublished }: StoryBuilderViewProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [storyData, setStoryData] = useState({
-    genre: '',
-    ageRange: { min: 4, max: 8 },
-    characters: [],
-    chapters: [],
-    title: '',
-    description: '',
-    coverImage: '',
-    settings: {
-      location: '',
-      timePeriod: '',
-      mood: '',
-    },
-    enhancements: {
-      music: false,
-      animations: false,
-      voiceNarration: false,
-      soundEffects: false,
-    },
-  });
+const initialStoryData = {
+  genre: '',
+  ageRange: { min: 4, max: 8 },
+  characters: [],
+  chapters: [],
+  title: '',
+  description: '',
+  coverImage: '',
+  settings: {
+    location: '',
+    timePeriod: '',
+    mood: '',
+  },
+  enhancements: {
+    music: false,
+    animations: false,
+    voiceNarration: false,
+    soundEffects: false,
+  },
+};
 
+export default function StoryBuilderView({ user, onBack, onStoryPublished, editStory }: StoryBuilderViewProps) {
   const steps = [
     {
       id: 'title',
@@ -79,6 +80,132 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished }: Sto
     },
   ];
 
+  // Load draft on mount
+  const [currentStep, setCurrentStep] = useState(() => {
+    const draft = getStoryDraft(user.id);
+    if (draft && draft.lastStep) {
+      const stepIndex = steps.findIndex(step => step.id === draft.lastStep);
+      return stepIndex >= 0 ? stepIndex : 0;
+    }
+    return 0;
+  });
+
+  const [storyData, setStoryData] = useState(() => {
+    // If editing a story, load it
+    if (editStory) {
+      return {
+        ...initialStoryData,
+        ...editStory,
+        id: editStory.id, // Preserve the story ID
+      };
+    }
+    // Otherwise, try to load draft
+    const draft = getStoryDraft(user.id);
+    if (draft && draft.data) {
+      return { ...initialStoryData, ...draft.data };
+    }
+    return initialStoryData;
+  });
+
+  // Listen for edit story event
+  useEffect(() => {
+    const handleEditStory = (event: CustomEvent) => {
+      const story = event.detail?.story;
+      if (story) {
+        setStoryData({
+          ...initialStoryData,
+          ...story,
+          id: story.id,
+        });
+        // Navigate to the appropriate step based on story content
+        if (story.chapters && story.chapters.length > 0) {
+          const storyStepIndex = steps.findIndex(step => step.id === 'story');
+          if (storyStepIndex >= 0) {
+            setCurrentStep(storyStepIndex);
+          }
+        } else if (story.characters && story.characters.length > 0) {
+          const charStepIndex = steps.findIndex(step => step.id === 'character');
+          if (charStepIndex >= 0) {
+            setCurrentStep(charStepIndex);
+          }
+        }
+      }
+    };
+    window.addEventListener('editStory', handleEditStory as EventListener);
+    return () => window.removeEventListener('editStory', handleEditStory as EventListener);
+  }, []);
+
+  // Auto-save draft whenever storyData or currentStep changes
+  useEffect(() => {
+    // Only save if there's meaningful data
+    const hasData = storyData.title || storyData.genre || storyData.chapters?.length > 0 || storyData.characters?.length > 0;
+    if (hasData) {
+      // Save to draft storage
+      saveStoryDraft(user.id, {
+        data: storyData,
+        lastStep: steps[currentStep]?.id || 'title',
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Also save as a draft story in the library if there's a title
+      if (storyData.title) {
+        const draftStory = {
+          id: storyData.id || `draft-${Date.now()}`,
+          title: storyData.title,
+          author: user.name,
+          genre: storyData.genre || 'Unknown',
+          coverImage: storyData.coverImage || '',
+          readingTime: Math.ceil((storyData.chapters?.length || 0) * 2),
+          difficulty: 'easy' as const,
+          isPublished: false,
+          progress: 0,
+          rating: 0,
+          lastRead: 'Never',
+          pages: storyData.chapters?.length || 0,
+          ageRange: storyData.ageRange || { min: 4, max: 8 },
+          chapters: storyData.chapters || [],
+          characters: storyData.characters || [],
+          description: storyData.description || '',
+          settings: storyData.settings || {},
+          enhancements: storyData.enhancements || {},
+          publishSettings: storyData.publishSettings || {},
+          status: 'draft',
+          createdAt: storyData.createdAt || new Date(),
+          updatedAt: new Date(),
+        };
+        saveUserStory(user.id, draftStory as any);
+      }
+    }
+  }, [storyData, currentStep, user.id, user.name]);
+
+  // Save on unmount or when navigating away
+  useEffect(() => {
+    return () => {
+      // Cleanup: save draft when component unmounts
+      const hasData = storyData.title || storyData.genre || storyData.chapters?.length > 0 || storyData.characters?.length > 0;
+      if (hasData) {
+        saveStoryDraft(user.id, {
+          data: storyData,
+          lastStep: steps[currentStep]?.id || 'title',
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    };
+  }, []); // Empty deps - only run on unmount
+
+  // Enhanced onBack handler that saves before leaving
+  const handleBackWithSave = () => {
+    const hasData = storyData.title || storyData.genre || storyData.chapters?.length > 0 || storyData.characters?.length > 0;
+    if (hasData) {
+      saveStoryDraft(user.id, {
+        data: storyData,
+        lastStep: steps[currentStep]?.id || 'title',
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    onBack();
+  };
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -92,15 +219,54 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished }: Sto
   };
 
   const handleStepComplete = (stepData: any) => {
-    setStoryData(prev => ({ ...prev, ...stepData }));
+    setStoryData((prev: typeof initialStoryData) => ({ ...prev, ...stepData }));
   };
 
   const handleStoryComplete = (finalStoryData?: any) => {
+    // Use the passed finalStoryData, or get the latest storyData
     const storyToPublish = finalStoryData || storyData;
-    // Story completed successfully
+    
+    // If editing, preserve the original ID
+    if (editStory && editStory.id) {
+      storyToPublish.id = editStory.id;
+    } else if (!storyToPublish.id) {
+      storyToPublish.id = Math.random().toString(36).substr(2, 9);
+    }
+    
+    // Ensure we have all required fields
+    const completeStory = {
+      ...storyToPublish,
+      status: storyToPublish.status || 'draft',
+      publishedAt: storyToPublish.status === 'published' ? (storyToPublish.publishedAt || new Date()) : undefined,
+      id: storyToPublish.id,
+    };
+    
+    // Save the story (whether draft or published)
+    if (completeStory.title) {
+      const storyToSave = {
+        ...completeStory,
+        author: typeof completeStory.author === 'string' ? completeStory.author : user.name,
+        isPublished: completeStory.status === 'published',
+        pages: completeStory.chapters?.length || 0,
+        readingTime: Math.ceil((completeStory.chapters?.length || 0) * 2),
+        difficulty: 'easy' as const,
+        progress: 0,
+        rating: completeStory.rating || 0,
+        lastRead: 'Never',
+        ageRange: completeStory.ageRange || { min: 4, max: 8 },
+        createdAt: completeStory.createdAt || new Date(),
+        updatedAt: new Date(),
+      };
+      saveUserStory(user.id, storyToSave as any);
+    }
+    
+    // Only clear draft if publishing (not saving as draft)
+    if (completeStory.status === 'published') {
+      clearStoryDraft(user.id);
+    }
     
     if (onStoryPublished) {
-      onStoryPublished(storyToPublish);
+      onStoryPublished(completeStory);
     } else {
       onBack();
     }
@@ -129,7 +295,7 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished }: Sto
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={onBack}
+                onClick={handleBackWithSave}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
                 <ArrowLeft className="w-6 h-6" />

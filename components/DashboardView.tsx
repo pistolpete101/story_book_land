@@ -30,14 +30,28 @@ export default function DashboardView({ user }: DashboardViewProps) {
 
   // Load user's stories on mount and when user changes
   useEffect(() => {
-    const loadStories = async () => {
-      // For now, use localStorage
-      // When database is set up, switch to: const stories = await getUserStoriesDB(user.id);
-      const stories = getUserStories(user.id);
-      setPublishedStories(stories);
+    if (!user || !user.id) {
+      console.log('DashboardView: No user or user.id', { user, userId: user?.id });
+      return;
+    }
+    
+    const loadStories = () => {
+      try {
+        // For now, use localStorage
+        // When database is set up, switch to: const stories = await getUserStoriesDB(user.id);
+        const stories = getUserStories(user.id);
+        console.log('DashboardView: Loaded stories', { userId: user.id, count: stories?.length, stories });
+        setPublishedStories(stories || []);
+      } catch (error) {
+        console.error('DashboardView: Error loading stories', error);
+        setPublishedStories([]);
+      }
     };
-    loadStories();
-  }, [user.id]);
+    
+    // Small delay to ensure localStorage is ready
+    const timer = setTimeout(loadStories, 100);
+    return () => clearTimeout(timer);
+  }, [user?.id]);
 
   const stats = [
     {
@@ -115,35 +129,48 @@ export default function DashboardView({ user }: DashboardViewProps) {
         id: user.id,
         name: user.name,
       },
-      createdAt: new Date(),
+      createdAt: publishedStory.createdAt || new Date(),
       updatedAt: new Date(),
-      publishedAt: publishedStory.status === 'published' ? new Date() : undefined,
+      publishedAt: publishedStory.status === 'published' ? (publishedStory.publishedAt || new Date()) : undefined,
+      isPublished: publishedStory.status === 'published' || publishedStory.isPublished === true,
     };
     
     // Save to user-specific storage
     saveUserStory(user.id, storyWithAuthor);
     
-    // Update local state
-    setPublishedStories(prev => [storyWithAuthor, ...prev]);
-    setCurrentView('library'); // Navigate to library to show the published story
+    // Reload stories from storage to ensure we have the latest
+    const allStories = getUserStories(user.id);
+    setPublishedStories(allStories || []);
+    
+    // Navigate to library to show the published story
+    setCurrentView('library');
   };
 
   const recentStories = publishedStories;
 
-  if (currentView !== 'dashboard') {
-    switch (currentView) {
-      case 'library':
-        return <MyLibraryView user={user} onBack={() => setCurrentView('dashboard')} publishedStories={publishedStories} />;
-      case 'story-builder':
-        return <StoryBuilderView user={user} onBack={() => setCurrentView('dashboard')} onStoryPublished={handleStoryPublished} />;
-      case 'achievements':
-        return <AchievementsView user={user} onBack={() => setCurrentView('dashboard')} />;
-      case 'settings':
-        return <SettingsView user={user} onBack={() => setCurrentView('dashboard')} />;
-      default:
-        return null;
-    }
-  }
+        const handleEditStory = (story: any) => {
+          // Load the story into the builder
+          setCurrentView('story-builder');
+          // Store the story to edit
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('editStory', { detail: { story } }));
+          }, 100);
+        };
+
+        if (currentView !== 'dashboard') {
+          switch (currentView) {
+            case 'library':
+              return <MyLibraryView user={user} onBack={() => setCurrentView('dashboard')} publishedStories={publishedStories} onEditStory={handleEditStory} />;
+            case 'story-builder':
+              return <StoryBuilderView user={user} onBack={() => setCurrentView('dashboard')} onStoryPublished={handleStoryPublished} />;
+            case 'achievements':
+              return <AchievementsView user={user} onBack={() => setCurrentView('dashboard')} />;
+            case 'settings':
+              return <SettingsView user={user} onBack={() => setCurrentView('dashboard')} />;
+            default:
+              return null;
+          }
+        }
 
   return (
     <div className="pt-0 px-4 tablet:px-6 tablet-lg:px-8 pb-2 tablet:pb-4 safe-area-inset">
@@ -260,22 +287,29 @@ export default function DashboardView({ user }: DashboardViewProps) {
                   <motion.div
                     key={story.id}
                     whileHover={{ scale: 1.05 }}
-                    className="card overflow-hidden"
+                    className="card overflow-hidden cursor-pointer border-2 border-amber-200 hover:border-amber-400 transition-colors bg-gradient-to-br from-amber-50 to-orange-50 shadow-md"
+                    onClick={() => {
+                      setCurrentView('library');
+                      // Use a small delay to ensure library view is mounted
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('openBook', { detail: { bookId: story.id } }));
+                      }, 200);
+                    }}
                   >
                     <div className="relative">
                       <img
-                        src={story.coverImage}
+                        src={story.coverImage || '/placeholder-book.png'}
                         alt={story.title}
                         className="w-full h-32 tablet:h-40 object-cover"
                       />
-                      <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
+                      <div className="absolute top-2 right-2 bg-amber-500/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-white">
                         {story.genre}
                       </div>
                       <div className="absolute bottom-2 left-2 right-2">
                         <div className="bg-white/90 backdrop-blur-sm rounded-lg p-2">
                           <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                             <div
-                              className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+                              className="bg-amber-500 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${story.progress}%` }}
                             />
                           </div>
@@ -285,7 +319,8 @@ export default function DashboardView({ user }: DashboardViewProps) {
                     </div>
                     <div className="p-2 tablet:p-3">
                       <h3 className="font-semibold text-sm tablet:text-base text-gray-900 mb-0.5 line-clamp-1">{story.title}</h3>
-                      <p className="text-xs tablet:text-sm text-gray-600">Last read {story.lastRead}</p>
+                      <p className="text-xs tablet:text-sm text-gray-600">by {typeof story.author === 'object' ? story.author?.name || 'Unknown' : story.author || 'Unknown'}</p>
+                      <p className="text-xs tablet:text-sm text-gray-500 mt-1">Last read {story.lastRead}</p>
                     </div>
                   </motion.div>
                 ))}

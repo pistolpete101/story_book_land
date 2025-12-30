@@ -145,40 +145,170 @@
   }
 }
 
-/* Print Styles for Book */
+/* Print Styles for Book - A4 Landscape */
+@page {
+  size: A4 landscape;
+  margin: 1.5cm;
+}
+
 @media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   body {
+    margin: 0;
+    padding: 0;
     background: white !important;
   }
 
-  .no-print {
+  /* Hide navigation, buttons, and non-print elements */
+  .no-print,
+  .print-hide,
+  button,
+  header,
+  nav,
+  .flex.justify-between:has(button),
+  .sticky,
+  .fixed {
     display: none !important;
   }
 
+  /* Show reading content */
   .print-page {
+    display: block !important;
+    visibility: visible !important;
     page-break-after: always;
     break-after: page;
-    min-height: 100vh;
+    width: 100%;
     margin: 0;
-    padding: 2rem;
+    padding: 1.5cm !important;
+    box-sizing: border-box;
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   .print-page:last-child {
     page-break-after: auto;
   }
 
-  /* Book spread layout for printing */
-  @page {
-    size: A4;
-    margin: 0;
+  /* Ensure print container is visible */
+  .print-container {
+    display: block !important;
+    visibility: visible !important;
   }
 
-  /* Ensure pages print side by side when possible */
-  @media print and (min-width: 768px) {
-    .print-spread {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
+  /* Each spread container - one per physical page */
+  .print-spread {
+    page-break-after: always;
+    break-after: page;
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    page-break-inside: avoid;
+  }
+
+  .print-spread:last-child {
+    page-break-after: auto;
+  }
+
+  /* Grid layout - stack pages vertically for print */
+  .print-grid {
+    display: block !important;
+    grid-template-columns: none !important;
+    gap: 0 !important;
+  }
+
+  /* Each story page gets its own physical page in landscape */
+  .print-story-page {
+    page-break-after: always;
+    break-after: page;
+    width: 100%;
+    margin: 0;
+    padding: 1.5cm;
+    box-sizing: border-box;
+    min-height: calc(100vh - 3cm);
+    height: auto;
+    display: flex !important;
+    flex-direction: column;
+    background: white !important;
+  }
+
+  .print-story-page:last-of-type {
+    page-break-after: auto;
+  }
+
+  /* Ensure proper spacing */
+  .print-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+
+  /* Remove card styling for print */
+  .card {
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Ensure pages don't break in the middle */
+  .print-story-page > * {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure content is visible */
+  .print-story-page,
+  .print-story-page *,
+  .print-page,
+  .print-page * {
+    visibility: visible !important;
+    color: black !important;
+  }
+
+  /* Reading area print styles */
+  .print-reading-area,
+  .print-container {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  .print-reading-area .print-page,
+  .print-container .print-page {
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin-bottom: 0 !important;
+    color: black !important;
+  }
+
+  /* Show all pages when printing */
+  .print-container .print-page {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Hide everything except reading content when printing */
+  body > *:not(.print-container):not(script) {
+    display: none !important;
+  }
+
+  .print-reading-area,
+  .print-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Ensure text is visible */
+  .print-page * {
+    color: black !important;
+    visibility: visible !important;
   }
 }

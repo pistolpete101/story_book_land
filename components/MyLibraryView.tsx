@@ -14,9 +14,10 @@ import {
   Eye,
   Heart,
   Users,
-  Share2
+  Share2,
+  Trash2
 } from 'lucide-react';
-import { getUserStories, saveUserStory } from '@/lib/storage';
+import { getUserStories, saveUserStory, deleteUserStory } from '@/lib/storage';
 import BookReadingView from './BookReadingView';
 import ParentInviteModal from './ParentInviteModal';
 
@@ -24,25 +25,31 @@ interface MyLibraryViewProps {
   user: User;
   onBack: () => void;
   publishedStories?: any[];
+  onEditStory?: (story: any) => void;
 }
 
-export default function MyLibraryView({ user, onBack, publishedStories = [] }: MyLibraryViewProps) {
+export default function MyLibraryView({ user, onBack, publishedStories = [], onEditStory }: MyLibraryViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [selectedBook, setSelectedBook] = useState<string | null>(null);
   const [books, setBooks] = useState<any[]>([]);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedStoryForInvite, setSelectedStoryForInvite] = useState<any>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   // Load user's stories from storage
   useEffect(() => {
+    if (!user || !user.id) return;
+    
     const userStories = getUserStories(user.id);
-    if (userStories.length > 0) {
+    if (userStories && userStories.length > 0) {
       setBooks(userStories);
-    } else if (publishedStories.length > 0) {
+    } else if (publishedStories && publishedStories.length > 0) {
       setBooks(publishedStories);
+    } else {
+      setBooks([]);
     }
-  }, [user.id, publishedStories]);
+  }, [user?.id, publishedStories]);
 
   const handleInviteParent = (story: any) => {
     setSelectedStoryForInvite(story);
@@ -74,6 +81,24 @@ export default function MyLibraryView({ user, onBack, publishedStories = [] }: M
     setBooks(prev => prev.map(b => b.id === updatedStory.id ? updatedStory : b));
   };
 
+  const handleDeleteStory = (bookId: string) => {
+    if (deleteConfirm === bookId) {
+      // Confirm deletion
+      deleteUserStory(user.id, bookId);
+      setBooks(prev => prev.filter(b => b.id !== bookId));
+      setDeleteConfirm(null);
+      // If the deleted book was being viewed, go back
+      if (selectedBook === bookId) {
+        setSelectedBook(null);
+      }
+    } else {
+      // Show confirmation
+      setDeleteConfirm(bookId);
+      // Auto-cancel after 3 seconds
+      setTimeout(() => setDeleteConfirm(null), 3000);
+    }
+  };
+
   const filters = [
     { id: 'all', label: 'All Books', count: books.length },
     { id: 'reading', label: 'Currently Reading', count: books.filter(b => b.progress > 0 && b.progress < 100).length },
@@ -100,15 +125,37 @@ export default function MyLibraryView({ user, onBack, publishedStories = [] }: M
     }
   });
 
+  // Listen for openBook event from dashboard
+  useEffect(() => {
+    const handleOpenBook = (event: CustomEvent) => {
+      const bookId = event.detail?.bookId;
+      if (bookId) {
+        setSelectedBook(bookId);
+      }
+    };
+    window.addEventListener('openBook', handleOpenBook as EventListener);
+    return () => window.removeEventListener('openBook', handleOpenBook as EventListener);
+  }, []);
+
   if (selectedBook) {
     const book = books.find(b => b.id === selectedBook);
     if (book) {
-      return <BookReadingView book={book} onBack={() => setSelectedBook(null)} />;
+      return (
+        <BookReadingView 
+          book={book} 
+          onBack={() => setSelectedBook(null)}
+          onDelete={(bookId) => {
+            deleteUserStory(user.id, bookId);
+            setBooks(prev => prev.filter(b => b.id !== bookId));
+            setSelectedBook(null);
+          }}
+        />
+      );
     }
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="min-h-screen p-4 md:p-8" data-library-view>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -184,14 +231,14 @@ export default function MyLibraryView({ user, onBack, publishedStories = [] }: M
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               whileHover={{ scale: 1.05 }}
-              className="card overflow-hidden"
+              className="card overflow-hidden cursor-pointer border-2 border-amber-200 hover:border-amber-400 transition-colors"
+              onClick={() => setSelectedBook(book.id)}
             >
               <div className="relative">
                 <img
-                  src={book.coverImage}
+                  src={book.coverImage || '/placeholder-book.png'}
                   alt={book.title}
-                  className="w-full h-64 object-cover cursor-pointer"
-                  onClick={() => setSelectedBook(book.id)}
+                  className="w-full h-64 object-cover"
                 />
                 <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
                   {book.genre}
@@ -228,7 +275,11 @@ export default function MyLibraryView({ user, onBack, publishedStories = [] }: M
                     </div>
                   </div>
                 )}
-                {!book.isPublished && (
+                {book.isPublished ? (
+                  <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                    Published
+                  </div>
+                ) : (
                   <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-medium">
                     Draft
                   </div>
@@ -256,11 +307,52 @@ export default function MyLibraryView({ user, onBack, publishedStories = [] }: M
                 </div>
                 
                 <div className="mt-3 flex space-x-2">
-                  <button className="flex-1 btn-primary text-sm py-2">
-                    {book.progress === 0 ? 'Start Reading' : book.progress === 100 ? 'Read Again' : 'Continue'}
-                  </button>
-                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <Heart className="w-4 h-4" />
+                  {!book.isPublished ? (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditStory) {
+                          onEditStory(book);
+                        }
+                      }}
+                      className="flex-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm"
+                    >
+                      Edit Story
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => setSelectedBook(book.id)}
+                      className="flex-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm"
+                    >
+                      {book.progress === 0 ? 'Start Reading' : book.progress === 100 ? 'Read Again' : 'Continue'}
+                    </button>
+                  )}
+                  {book.isPublished && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditStory) {
+                          onEditStory(book);
+                        }
+                      }}
+                      className="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                  )}
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteStory(book.id);
+                    }}
+                    className={`p-2 rounded-lg transition-colors ${
+                      deleteConfirm === book.id
+                        ? 'bg-red-500 text-white'
+                        : 'hover:bg-red-100 text-red-500'
+                    }`}
+                    title={deleteConfirm === book.id ? 'Click again to confirm' : 'Delete story'}
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>

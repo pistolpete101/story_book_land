@@ -59,9 +59,9 @@ export default function OnboardingView({ onComplete }: OnboardingViewProps) {
     if (step < 3) {
       setStep(step + 1);
     } else {
-      // Complete onboarding
+      // Complete onboarding - use consistent user ID
       const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: 'test-user-123', // Always use the same ID for consistency
         name: userData.name,
         email: `${userData.name.toLowerCase().replace(' ', '.')}@storybookland.com`,
         age: userData.age,
