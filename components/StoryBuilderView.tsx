@@ -8,7 +8,6 @@ import TitleInputView from './StoryBuilder/TitleInputView';
 import GenreSelectionView from './StoryBuilder/GenreSelectionView';
 import CharacterCreationView from './StoryBuilder/CharacterCreationView';
 import StoryWritingView from './StoryBuilder/StoryWritingView';
-import EnhancementsView from './StoryBuilder/EnhancementsView';
 import PreviewPublishView from './StoryBuilder/PreviewPublishView';
 import { getStoryDraft, saveStoryDraft, clearStoryDraft, saveUserStory } from '@/lib/storage';
 
@@ -27,16 +26,11 @@ const initialStoryData = {
   title: '',
   description: '',
   coverImage: '',
+  coverImageBack: '',
   settings: {
     location: '',
     timePeriod: '',
     mood: '',
-  },
-  enhancements: {
-    music: false,
-    animations: false,
-    voiceNarration: false,
-    soundEffects: false,
   },
 };
 
@@ -67,12 +61,6 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
       component: StoryWritingView,
     },
     {
-      id: 'enhancements',
-      title: 'Add Enhancements',
-      description: 'Make your story even more magical',
-      component: EnhancementsView,
-    },
-    {
       id: 'preview',
       title: 'Preview & Publish',
       description: 'Review your story before sharing it',
@@ -82,6 +70,10 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
 
   // Load draft on mount
   const [currentStep, setCurrentStep] = useState(() => {
+    // If editing a story, always start at the beginning (step 0)
+    if (editStory) {
+      return 0;
+    }
     const draft = getStoryDraft(user.id);
     if (draft && draft.lastStep) {
       const stepIndex = steps.findIndex(step => step.id === draft.lastStep);
@@ -107,28 +99,28 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
     return initialStoryData;
   });
 
-  // Listen for edit story event
+  // Update storyData when editStory prop changes
+  useEffect(() => {
+    if (editStory) {
+      setStoryData({
+        ...initialStoryData,
+        ...editStory,
+        id: editStory.id,
+        // Ensure chapters are properly mapped (chapters vs pages)
+        chapters: editStory.chapters || editStory.pages || [],
+      });
+      // Always start at step 0 when editing
+      setCurrentStep(0);
+    }
+  }, [editStory]);
+
+  // Listen for edit story event (for navigation)
   useEffect(() => {
     const handleEditStory = (event: CustomEvent) => {
-      const story = event.detail?.story;
-      if (story) {
-        setStoryData({
-          ...initialStoryData,
-          ...story,
-          id: story.id,
-        });
-        // Navigate to the appropriate step based on story content
-        if (story.chapters && story.chapters.length > 0) {
-          const storyStepIndex = steps.findIndex(step => step.id === 'story');
-          if (storyStepIndex >= 0) {
-            setCurrentStep(storyStepIndex);
-          }
-        } else if (story.characters && story.characters.length > 0) {
-          const charStepIndex = steps.findIndex(step => step.id === 'character');
-          if (charStepIndex >= 0) {
-            setCurrentStep(charStepIndex);
-          }
-        }
+      const startAtBeginning = event.detail?.startAtBeginning;
+      // If startAtBeginning flag is set, go to first step (title)
+      if (startAtBeginning) {
+        setCurrentStep(0);
       }
     };
     window.addEventListener('editStory', handleEditStory as EventListener);
@@ -155,6 +147,7 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
           author: user.name,
           genre: storyData.genre || 'Unknown',
           coverImage: storyData.coverImage || '',
+          coverImageBack: storyData.coverImageBack || '',
           readingTime: Math.ceil((storyData.chapters?.length || 0) * 2),
           difficulty: 'easy' as const,
           isPublished: false,
@@ -167,8 +160,6 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
           characters: storyData.characters || [],
           description: storyData.description || '',
           settings: storyData.settings || {},
-          enhancements: storyData.enhancements || {},
-          publishSettings: storyData.publishSettings || {},
           status: 'draft',
           createdAt: storyData.createdAt || new Date(),
           updatedAt: new Date(),

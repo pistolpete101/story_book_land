@@ -10,6 +10,7 @@ export interface Story {
     max: number;
   };
   coverImage: string;
+  coverImageBack?: string;
   pages: StoryPage[];
   characters: Character[];
   settings: {
@@ -38,7 +39,7 @@ export interface StoryPage {
   title: string;
   content: string;
   image?: string;
-  layout: 'text-only' | 'image-text' | 'text-image' | 'full-image';
+  layout: 'image-text' | 'text-image';
   characters: string[]; // character IDs that appear on this page
   settings: {
     location?: string;

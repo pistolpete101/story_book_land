@@ -44,8 +44,23 @@ export function getUserStories(userId: string): Story[] {
   try {
     const stories = JSON.parse(stored);
     console.log('getUserStories: Parsed stories', stories.length);
+    
+    // Deduplicate stories by ID (keep the most recent one)
+    const storyMap = new Map<string, any>();
+    stories.forEach((story: any) => {
+      if (story.id) {
+        const existing = storyMap.get(story.id);
+        if (!existing || new Date(story.updatedAt) > new Date(existing.updatedAt)) {
+          storyMap.set(story.id, story);
+        }
+      }
+    });
+    
+    const uniqueStories = Array.from(storyMap.values());
+    console.log('getUserStories: After deduplication', uniqueStories.length);
+    
     // Convert date strings back to Date objects
-    return stories.map((story: any) => ({
+    return uniqueStories.map((story: any) => ({
       ...story,
       createdAt: new Date(story.createdAt),
       updatedAt: new Date(story.updatedAt),
@@ -80,10 +95,14 @@ export function saveUserStory(userId: string, story: Story): void {
 export function deleteUserStory(userId: string, storyId: string): void {
   if (typeof window === 'undefined') return;
   
+  console.log('deleteUserStory: Deleting story', { userId, storyId });
   const stories = getUserStories(userId);
+  console.log('deleteUserStory: Current stories count', stories.length);
   const filtered = stories.filter(s => s.id !== storyId);
+  console.log('deleteUserStory: After filter, stories count', filtered.length);
   const key = getUserStoriesKey(userId);
   localStorage.setItem(key, JSON.stringify(filtered));
+  console.log('deleteUserStory: Saved to localStorage');
 }
 
 // Shared stories (stories shared with parents)

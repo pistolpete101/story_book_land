@@ -21,17 +21,81 @@ import { getUserStories, saveUserStory, deleteUserStory } from '@/lib/storage';
 import BookReadingView from './BookReadingView';
 import ParentInviteModal from './ParentInviteModal';
 
+// Genre style mapping
+const getGenreStyle = (genre: string) => {
+  const genreLower = genre?.toLowerCase() || '';
+  const styles: Record<string, { gradient: string; border: string; badge: string; text: string }> = {
+    'adventure': {
+      gradient: 'from-blue-200 to-blue-400',
+      border: 'border-blue-300',
+      badge: 'bg-blue-500/90',
+      text: 'text-blue-900',
+    },
+    'fantasy': {
+      gradient: 'from-purple-200 to-purple-400',
+      border: 'border-purple-300',
+      badge: 'bg-purple-500/90',
+      text: 'text-purple-900',
+    },
+    'magic': {
+      gradient: 'from-indigo-200 to-indigo-400',
+      border: 'border-indigo-300',
+      badge: 'bg-indigo-500/90',
+      text: 'text-indigo-900',
+    },
+    'mystery': {
+      gradient: 'from-gray-200 to-gray-400',
+      border: 'border-gray-300',
+      badge: 'bg-gray-500/90',
+      text: 'text-gray-900',
+    },
+    'science-fiction': {
+      gradient: 'from-cyan-200 to-cyan-400',
+      border: 'border-cyan-300',
+      badge: 'bg-cyan-500/90',
+      text: 'text-cyan-900',
+    },
+    'fairy-tale': {
+      gradient: 'from-pink-200 to-pink-400',
+      border: 'border-pink-300',
+      badge: 'bg-pink-500/90',
+      text: 'text-pink-900',
+    },
+    'animal': {
+      gradient: 'from-green-200 to-green-400',
+      border: 'border-green-300',
+      badge: 'bg-green-500/90',
+      text: 'text-green-900',
+    },
+    'friendship': {
+      gradient: 'from-yellow-200 to-yellow-400',
+      border: 'border-yellow-300',
+      badge: 'bg-yellow-500/90',
+      text: 'text-yellow-900',
+    },
+  };
+  
+  return styles[genreLower] || {
+    gradient: 'from-amber-200 to-orange-300',
+    border: 'border-amber-300',
+    badge: 'bg-amber-500/90',
+    text: 'text-amber-900',
+  };
+};
+
 interface MyLibraryViewProps {
   user: User;
   onBack: () => void;
   publishedStories?: any[];
   onEditStory?: (story: any) => void;
+  initialBookId?: string | null;
+  onBookOpened?: () => void;
 }
 
-export default function MyLibraryView({ user, onBack, publishedStories = [], onEditStory }: MyLibraryViewProps) {
+export default function MyLibraryView({ user, onBack, publishedStories = [], onEditStory, initialBookId, onBookOpened }: MyLibraryViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [selectedBook, setSelectedBook] = useState<string | null>(null);
+  const [selectedBook, setSelectedBook] = useState<string | null>(initialBookId || null);
   const [books, setBooks] = useState<any[]>([]);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedStoryForInvite, setSelectedStoryForInvite] = useState<any>(null);
@@ -125,7 +189,17 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
     }
   });
 
-  // Listen for openBook event from dashboard
+  // Handle initialBookId prop - set selectedBook immediately if provided
+  useEffect(() => {
+    if (initialBookId) {
+      setSelectedBook(initialBookId);
+      if (onBookOpened) {
+        onBookOpened();
+      }
+    }
+  }, [initialBookId, onBookOpened]);
+
+  // Listen for openBook event from dashboard (fallback for other navigation methods)
   useEffect(() => {
     const handleOpenBook = (event: CustomEvent) => {
       const bookId = event.detail?.bookId;
@@ -141,7 +215,8 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
     const book = books.find(b => b.id === selectedBook);
     if (book) {
       return (
-        <BookReadingView 
+        <BookReadingView
+          user={user} 
           book={book} 
           onBack={() => setSelectedBook(null)}
           onDelete={(bookId) => {
@@ -231,16 +306,43 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               whileHover={{ scale: 1.05 }}
-              className="card overflow-hidden cursor-pointer border-2 border-amber-200 hover:border-amber-400 transition-colors"
+              className={`card overflow-hidden cursor-pointer border-2 ${getGenreStyle(book.genre).border} transition-colors hover:shadow-lg`}
+              style={{
+                borderColor: getGenreStyle(book.genre).border.includes('blue') ? '#93c5fd' :
+                             getGenreStyle(book.genre).border.includes('purple') ? '#c4b5fd' :
+                             getGenreStyle(book.genre).border.includes('indigo') ? '#a5b4fc' :
+                             getGenreStyle(book.genre).border.includes('gray') ? '#d1d5db' :
+                             getGenreStyle(book.genre).border.includes('cyan') ? '#67e8f9' :
+                             getGenreStyle(book.genre).border.includes('pink') ? '#f9a8d4' :
+                             getGenreStyle(book.genre).border.includes('green') ? '#86efac' :
+                             getGenreStyle(book.genre).border.includes('yellow') ? '#fde047' :
+                             '#fcd34d',
+              }}
               onClick={() => setSelectedBook(book.id)}
             >
               <div className="relative">
-                <img
-                  src={book.coverImage || '/placeholder-book.png'}
-                  alt={book.title}
-                  className="w-full h-64 object-cover"
-                />
-                <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
+                {book.coverImage ? (
+                  <img
+                    src={book.coverImage}
+                    alt={book.title}
+                    className="w-full h-64 object-cover"
+                    onError={(e) => {
+                      // Hide broken image and show placeholder div
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const placeholder = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                      if (placeholder) placeholder.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className={`w-full h-64 bg-gradient-to-br ${getGenreStyle(book.genre).gradient} flex items-center justify-center px-4 ${book.coverImage ? 'hidden' : ''}`}
+                  style={{ display: book.coverImage ? 'none' : 'flex' }}
+                >
+                  <div className={`text-base font-bold ${getGenreStyle(book.genre).text} text-center line-clamp-3 w-full flex items-center justify-center`}>
+                    {book.title || 'Untitled Story'}
+                  </div>
+                </div>
+                <div className={`absolute top-2 left-2 ${getGenreStyle(book.genre).badge} backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-white`}>
                   {book.genre}
                 </div>
                 <button

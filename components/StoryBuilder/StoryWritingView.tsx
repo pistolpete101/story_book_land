@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User } from '@/types/User';
-import { ArrowRight, Plus, Trash2, Edit3, Image, Type, Palette, X } from 'lucide-react';
+import { ArrowRight, Plus, Trash2, Edit3, Image, X } from 'lucide-react';
 
 interface StoryWritingViewProps {
   user: User;
@@ -21,7 +21,8 @@ interface StoryChapter {
   chapterNumber: number;
   title: string;
   content: string;
-  layout: 'text-only' | 'image-text' | 'text-image' | 'full-image';
+  layout: 'image-text' | 'text-image';
+  image?: string;
   characters: string[];
   settings: {
     location?: string;
@@ -46,7 +47,8 @@ export default function StoryWritingView({
   const [newChapter, setNewChapter] = useState<Partial<StoryChapter>>({
     title: '',
     content: '',
-    layout: 'text-only',
+    layout: 'image-text',
+    image: undefined,
     characters: [],
     settings: {
       location: '',
@@ -60,14 +62,41 @@ export default function StoryWritingView({
   const characters = storyData.characters || [];
 
   const layoutOptions = [
-    { id: 'text-only', name: 'Text Only', icon: Type, description: 'Just words' },
     { id: 'image-text', name: 'Image + Text', icon: Image, description: 'Image above text' },
     { id: 'text-image', name: 'Text + Image', icon: Image, description: 'Text above image' },
-    { id: 'full-image', name: 'Full Image', icon: Palette, description: 'Image with text overlay' },
   ];
 
   const timeOfDayOptions = ['Morning', 'Afternoon', 'Evening', 'Night', 'Dawn', 'Dusk'];
   const weatherOptions = ['Sunny', 'Cloudy', 'Rainy', 'Snowy', 'Windy', 'Foggy', 'Stormy'];
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imageDataUrl = event.target?.result as string;
+        setNewChapter(prev => ({ ...prev, image: imageDataUrl }));
+      };
+      reader.onerror = () => {
+        alert('Failed to load image. Please try again.');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setNewChapter(prev => ({ ...prev, image: undefined }));
+  };
 
   const handleAddChapter = (stayOpen: boolean = false) => {
     if (newChapter.title && newChapter.content) {
@@ -76,7 +105,8 @@ export default function StoryWritingView({
         chapterNumber: chapters.length + 1,
         title: newChapter.title,
         content: newChapter.content,
-        layout: newChapter.layout || 'text-only',
+        layout: newChapter.layout || 'image-text',
+        image: newChapter.image,
         characters: newChapter.characters || [],
         settings: newChapter.settings || {
           location: '',
@@ -92,7 +122,8 @@ export default function StoryWritingView({
         setNewChapter({
           title: '',
           content: '',
-          layout: 'text-only',
+          layout: 'image-text',
+          image: undefined,
           characters: [],
           settings: {
             location: '',
@@ -104,7 +135,8 @@ export default function StoryWritingView({
         setNewChapter({
           title: '',
           content: '',
-          layout: 'text-only',
+          layout: 'image-text',
+          image: undefined,
           characters: [],
           settings: {
             location: '',
@@ -136,7 +168,8 @@ export default function StoryWritingView({
           chapterNumber: chapters.length + 1,
           title: newChapter.title!,
           content: newChapter.content!,
-          layout: newChapter.layout || 'text-only',
+          layout: newChapter.layout || 'image-text',
+          image: newChapter.image,
           characters: newChapter.characters || [],
           settings: newChapter.settings || {
             location: '',
@@ -155,7 +188,7 @@ export default function StoryWritingView({
           setNewChapter({
             title: '',
             content: '',
-            layout: 'text-only',
+            layout: 'image-text',
             characters: [],
             settings: {
               location: '',
@@ -175,7 +208,8 @@ export default function StoryWritingView({
                 ...chap,
                 title: newChapter.title!,
                 content: newChapter.content!,
-                layout: newChapter.layout || 'text-only',
+                layout: newChapter.layout || 'image-text',
+                image: newChapter.image,
                 characters: newChapter.characters || [],
                 settings: newChapter.settings || {
                   location: '',
@@ -201,7 +235,7 @@ export default function StoryWritingView({
             setNewChapter({
               title: '',
               content: '',
-              layout: 'text-only',
+              layout: 'image-text',
               characters: [],
               settings: {
                 location: '',
@@ -231,7 +265,8 @@ export default function StoryWritingView({
               ...chap,
               title: newChapter.title!,
               content: newChapter.content!,
-              layout: newChapter.layout || 'text-only',
+              layout: newChapter.layout || 'image-text',
+              image: newChapter.image,
               characters: newChapter.characters || [],
               settings: newChapter.settings || {
                 location: '',
@@ -248,7 +283,8 @@ export default function StoryWritingView({
         setNewChapter({
           title: '',
           content: '',
-          layout: 'text-only',
+          layout: 'image-text',
+          image: undefined,
           characters: [],
           settings: {
             location: '',
@@ -432,10 +468,26 @@ export default function StoryWritingView({
             
             <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{chapter.title}</h3>
             
+            {chapter.image && (
+              <div className="mb-3 rounded-lg overflow-hidden">
+                <img
+                  src={chapter.image}
+                  alt={chapter.title}
+                  className="w-full h-32 object-cover"
+                />
+              </div>
+            )}
+            
             <div className="flex flex-wrap gap-1 mb-3">
               <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
                 {layoutOptions.find(l => l.id === chapter.layout)?.name}
               </span>
+              {chapter.image && (
+                <span className="px-2 py-1 bg-green-100 text-green-600 text-xs rounded-full flex items-center space-x-1">
+                  <Image className="w-3 h-3" />
+                  <span>Image</span>
+                </span>
+              )}
               {chapter.settings.location && (
                 <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full">
                   📍 {chapter.settings.location}
@@ -472,7 +524,8 @@ export default function StoryWritingView({
             setNewChapter({
               title: '',
               content: '',
-              layout: 'text-only',
+              layout: 'image-text',
+              image: undefined,
               characters: [],
               settings: {
                 location: '',
@@ -519,7 +572,7 @@ export default function StoryWritingView({
                     setNewChapter({
                       title: '',
                       content: '',
-                      layout: 'text-only',
+                      layout: 'image-text',
                       characters: [],
                       settings: {
                         location: '',
@@ -557,7 +610,7 @@ export default function StoryWritingView({
                     Layout
                   </label>
                   <select
-                    value={newChapter.layout || 'text-only'}
+                    value={newChapter.layout || 'image-text'}
                     onChange={(e) => setNewChapter(prev => ({ ...prev, layout: e.target.value as any }))}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
@@ -568,6 +621,55 @@ export default function StoryWritingView({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Image Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Chapter Image (optional)
+                </label>
+                {newChapter.image ? (
+                  <div className="relative">
+                    <img
+                      src={newChapter.image}
+                      alt="Chapter preview"
+                      className="w-full max-h-64 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      title="Remove image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="chapter-image-upload"
+                    />
+                    <label
+                      htmlFor="chapter-image-upload"
+                      className="cursor-pointer flex flex-col items-center space-y-2"
+                    >
+                      <Image className="w-8 h-8 text-gray-400" />
+                      <span className="text-sm text-gray-600">
+                        Click to upload an image
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        PNG, JPG, GIF up to 5MB
+                      </span>
+                    </label>
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Add an image to display with your chapter text.
+                </p>
               </div>
 
               {/* Settings - Location, Time, Weather */}
@@ -721,7 +823,7 @@ export default function StoryWritingView({
                           setNewChapter({
                             title: '',
                             content: '',
-                            layout: 'text-only',
+                            layout: 'image-text',
                             characters: [],
                             settings: {
                               location: '',
@@ -852,7 +954,7 @@ export default function StoryWritingView({
                       setNewChapter({
                         title: '',
                         content: '',
-                        layout: 'text-only',
+                        layout: 'image-text',
                         characters: [],
                         settings: {
                           location: '',

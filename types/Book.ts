@@ -23,5 +23,5 @@ export interface Page {
   content: string;
   image?: string;
   audioUrl?: string;
-  layout: 'text-only' | 'image-text' | 'text-image' | 'full-image';
+  layout: 'image-text' | 'text-image';
 }

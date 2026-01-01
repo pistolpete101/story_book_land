@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User } from '@/types/User';
-import { ArrowRight, Eye, Edit3, Share2, Download, BookOpen, Star, Users, Clock } from 'lucide-react';
+import { ArrowRight, Eye, Edit3, Share2, Download, BookOpen, Star, Users, Clock, Image as ImageIcon, X } from 'lucide-react';
 
 interface PreviewPublishViewProps {
   user: User;
@@ -31,16 +31,11 @@ export default function PreviewPublishView({
   const [storyTitle, setStoryTitle] = useState(storyData.title || '');
   const [storyDescription, setStoryDescription] = useState(storyData.description || '');
   const [coverImage, setCoverImage] = useState(storyData.coverImage || '');
+  const [coverImageBack, setCoverImageBack] = useState(storyData.coverImageBack || '');
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [storyStatus, setStoryStatus] = useState<'draft' | 'published' | 'in-progress' | 'completed'>(
     storyData.status || 'draft'
   );
-  const [publishSettings, setPublishSettings] = useState({
-    isPublic: true,
-    allowComments: true,
-    allowSharing: true,
-    ageRestriction: false,
-  });
 
   const handlePublish = () => {
     // Ensure author is always a string, not an object
@@ -60,7 +55,7 @@ export default function PreviewPublishView({
       title: storyTitle,
       description: storyDescription,
       coverImage: coverImage || '',
-      publishSettings,
+      coverImageBack: coverImageBack || '',
       status: 'published', // Always set to published when clicking Publish button
       isPublished: true, // Always true when publishing
       publishedAt: new Date(), // Set published date
@@ -87,7 +82,7 @@ export default function PreviewPublishView({
       title: storyTitle,
       description: storyDescription,
       coverImage,
-      publishSettings,
+      coverImageBack,
       status: storyStatus,
       isPublished: storyStatus === 'published',
       publishedAt: storyStatus === 'published' ? new Date() : (storyData.publishedAt || undefined),
@@ -104,7 +99,7 @@ export default function PreviewPublishView({
       title: storyTitle,
       description: storyDescription,
       coverImage,
-      publishSettings,
+      coverImageBack,
       status: storyStatus,
       isPublished: storyStatus === 'published',
     };
@@ -369,17 +364,118 @@ export default function PreviewPublishView({
                 />
               </div>
               
+              {/* Cover Image Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cover Image URL
+                  Front Cover Image
                 </label>
-                <input
-                  type="url"
-                  value={coverImage}
-                  onChange={(e) => setCoverImage(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="https://example.com/cover.jpg"
-                />
+                {coverImage ? (
+                  <div className="relative w-full h-48 border-2 border-gray-300 rounded-lg flex items-center justify-center overflow-hidden mb-2">
+                    <img src={coverImage} alt="Front Cover" className="object-cover w-full h-full" />
+                    <button
+                      onClick={() => setCoverImage('')}
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                      title="Remove image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <ImageIcon className="w-8 h-8 mb-3 text-gray-400" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF (Max 5MB)</p>
+                    </div>
+                    <input 
+                      id="front-cover-upload" 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (!file.type.startsWith('image/')) {
+                            alert('Please select an image file');
+                            return;
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            alert('Image size must be less than 5MB');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const imageDataUrl = event.target?.result as string;
+                            setCoverImage(imageDataUrl);
+                          };
+                          reader.onerror = () => {
+                            alert('Failed to load image. Please try again.');
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }} 
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Back Cover Image Upload (Optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Back Cover Image (Optional)
+                </label>
+                {coverImageBack ? (
+                  <div className="relative w-full h-48 border-2 border-gray-300 rounded-lg flex items-center justify-center overflow-hidden mb-2">
+                    <img src={coverImageBack} alt="Back Cover" className="object-cover w-full h-full" />
+                    <button
+                      onClick={() => setCoverImageBack('')}
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                      title="Remove image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <ImageIcon className="w-8 h-8 mb-3 text-gray-400" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF (Max 5MB)</p>
+                    </div>
+                    <input 
+                      id="back-cover-upload" 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (!file.type.startsWith('image/')) {
+                            alert('Please select an image file');
+                            return;
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            alert('Image size must be less than 5MB');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const imageDataUrl = event.target?.result as string;
+                            setCoverImageBack(imageDataUrl);
+                          };
+                          reader.onerror = () => {
+                            alert('Failed to load image. Please try again.');
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }} 
+                    />
+                  </label>
+                )}
               </div>
               
               <div>
@@ -406,43 +502,6 @@ export default function PreviewPublishView({
                     : 'Your story is finished'}
                 </p>
               </div>
-            </div>
-          </div>
-
-          {/* Publish Settings */}
-          <div className="card p-4 tablet:p-6">
-            <h3 className="text-lg tablet:text-xl font-bold text-gray-900 mb-3 tablet:mb-4">Publish Settings</h3>
-            
-            <div className="space-y-3 tablet:space-y-4">
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={publishSettings.isPublic}
-                  onChange={(e) => setPublishSettings(prev => ({ ...prev, isPublic: e.target.checked }))}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 bg-white"
-                />
-                <span className="text-sm font-medium text-gray-700">Make story public</span>
-              </label>
-              
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={publishSettings.allowComments}
-                  onChange={(e) => setPublishSettings(prev => ({ ...prev, allowComments: e.target.checked }))}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 bg-white"
-                />
-                <span className="text-sm font-medium text-gray-700">Allow comments</span>
-              </label>
-              
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={publishSettings.allowSharing}
-                  onChange={(e) => setPublishSettings(prev => ({ ...prev, allowSharing: e.target.checked }))}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 bg-white"
-                />
-                <span className="text-sm font-medium text-gray-700">Allow sharing</span>
-              </label>
             </div>
           </div>
         </motion.div>
@@ -551,25 +610,6 @@ export default function PreviewPublishView({
             </div>
           </div>
 
-          {/* Enhancements Summary */}
-          {storyData.enhancements && Object.values(storyData.enhancements).some(Boolean) && (
-            <div className="card p-4 tablet:p-6">
-              <h3 className="text-lg tablet:text-xl font-bold text-gray-900 mb-3 tablet:mb-4">Active Enhancements</h3>
-              
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(storyData.enhancements)
-                  .filter(([_, enabled]) => enabled)
-                  .map(([key, _]) => (
-                    <span
-                      key={key}
-                      className="px-3 py-1 bg-primary-100 text-primary-700 text-sm rounded-full font-medium"
-                    >
-                      {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
-                    </span>
-                  ))}
-              </div>
-            </div>
-          )}
         </motion.div>
       </div>
 
