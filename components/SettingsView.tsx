@@ -99,10 +99,17 @@ export default function SettingsView({ user, onBack }: SettingsViewProps) {
         <input
           type="email"
           value={settings.profile.email}
-          onChange={(e) => setSettings(prev => ({
-            ...prev,
-            profile: { ...prev.profile, email: e.target.value }
-          }))}
+          onChange={(e) => {
+            const email = e.target.value;
+            // Basic email validation
+            if (email.length <= 254) {
+              setSettings(prev => ({
+                ...prev,
+                profile: { ...prev.profile, email }
+              }));
+            }
+          }}
+          maxLength={254}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
       </div>
@@ -114,10 +121,15 @@ export default function SettingsView({ user, onBack }: SettingsViewProps) {
         <input
           type="number"
           value={settings.profile.age}
-          onChange={(e) => setSettings(prev => ({
-            ...prev,
-            profile: { ...prev.profile, age: parseInt(e.target.value) }
-          }))}
+          onChange={(e) => {
+            const age = parseInt(e.target.value);
+            if (!isNaN(age) && age >= 4 && age <= 18) {
+              setSettings(prev => ({
+                ...prev,
+                profile: { ...prev.profile, age }
+              }));
+            }
+          }}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           min="4"
           max="18"

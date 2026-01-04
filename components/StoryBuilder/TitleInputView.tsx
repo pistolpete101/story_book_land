@@ -27,9 +27,27 @@ export default function TitleInputView({
 }: TitleInputViewProps) {
   const [title, setTitle] = useState(storyData.title || '');
   const [description, setDescription] = useState(storyData.description || '');
+  const [titleError, setTitleError] = useState('');
 
   const handleNext = () => {
-    onComplete({ title, description });
+    // Validate title
+    if (!title || title.trim().length === 0) {
+      setTitleError('Title is required');
+      return;
+    }
+    
+    if (title.trim().length > 100) {
+      setTitleError('Title must be 100 characters or less');
+      return;
+    }
+    
+    if (description && description.trim().length > 1000) {
+      setTitleError('Description must be 1000 characters or less');
+      return;
+    }
+    
+    setTitleError('');
+    onComplete({ title: title.trim(), description: description.trim() });
     onNext();
   };
 
@@ -72,11 +90,19 @@ export default function TitleInputView({
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-6 py-4 text-xl border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setTitleError(''); // Clear error on change
+                }}
+                className={`w-full px-6 py-4 text-xl border-2 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all ${
+                  titleError ? 'border-red-300' : 'border-gray-200'
+                }`}
                 placeholder="Enter your amazing story title..."
                 maxLength={100}
               />
+              {titleError && (
+                <p className="mt-2 text-sm text-red-600">{titleError}</p>
+              )}
               <div className="text-right text-sm text-gray-500 mt-1">
                 {title.length}/100 characters
               </div>
@@ -105,12 +131,23 @@ export default function TitleInputView({
               </label>
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-6 py-4 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none"
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  setTitleError(''); // Clear error on change
+                }}
+                maxLength={1000}
+                className={`w-full px-6 py-4 text-lg border-2 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none ${
+                  titleError ? 'border-red-300' : 'border-gray-200'
+                }`}
                 rows={4}
                 placeholder="Describe your story in a few sentences..."
-                maxLength={500}
               />
+              {titleError && description.length > 1000 && (
+                <p className="mt-2 text-sm text-red-600">{titleError}</p>
+              )}
+              <div className="text-right text-sm text-gray-500 mt-1">
+                {description.length}/1000 characters
+              </div>
               <div className="text-right text-sm text-gray-500 mt-1">
                 {description.length}/500 characters
               </div>

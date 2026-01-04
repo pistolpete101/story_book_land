@@ -73,13 +73,20 @@ export default function StoryWritingView({
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+      // Enhanced file validation
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Only image files are allowed (JPEG, PNG, GIF, WebP)');
         return;
       }
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert('Image size must be less than 5MB');
+        return;
+      }
+      // Check for empty file
+      if (file.size === 0) {
+        alert('File is empty');
         return;
       }
       const reader = new FileReader();
