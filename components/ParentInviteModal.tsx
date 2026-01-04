@@ -64,7 +64,7 @@ export default function ParentInviteModal({ story, isOpen, onClose, onInvite }: 
             </h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
             >
               <X className="w-6 h-6" />
             </button>

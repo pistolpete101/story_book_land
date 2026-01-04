@@ -34,7 +34,7 @@ export default function DeviceRecommendation() {
         >
           <button
             onClick={() => setIsVisible(false)}
-            className="absolute top-2 right-2 p-1 hover:bg-white/50 rounded-full transition-colors"
+            className="absolute top-2 right-2 p-1 hover:bg-white/50 rounded-full transition-colors flex items-center justify-center"
             aria-label="Close"
           >
             <X className="w-5 h-5 text-gray-600" />

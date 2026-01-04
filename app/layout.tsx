@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import MobileWarning from '@/components/MobileWarning'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -35,7 +34,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <MobileWarning />
         <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 safe-area-inset">
           {children}
         </div>

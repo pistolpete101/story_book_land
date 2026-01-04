@@ -16,9 +16,10 @@ import {
   Edit3,
   Trash2
 } from 'lucide-react';
-import { getUserStories, saveUserStory, deleteUserStory } from '@/lib/storage';
+import { getUserStories, saveUserStory, deleteUserStory, clearStoryDraft } from '@/lib/storage';
 import MyLibraryView from './MyLibraryView';
 import StoryBuilderView from './StoryBuilderView';
+import StoryEditView from './StoryBuilder/StoryEditView';
 import AchievementsView from './AchievementsView';
 import SettingsView from './SettingsView';
 
@@ -89,15 +90,15 @@ const getGenreStyle = (genre: string) => {
 };
 
 export default function DashboardView({ user }: DashboardViewProps) {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'library' | 'story-builder' | 'achievements' | 'settings'>('dashboard');
-  const [viewHistory, setViewHistory] = useState<Array<'dashboard' | 'library' | 'story-builder' | 'achievements' | 'settings'>>(['dashboard']);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'library' | 'story-builder' | 'story-edit' | 'achievements' | 'settings'>('dashboard');
+  const [viewHistory, setViewHistory] = useState<Array<'dashboard' | 'library' | 'story-builder' | 'story-edit' | 'achievements' | 'settings'>>(['dashboard']);
   const [publishedStories, setPublishedStories] = useState<any[]>([]);
   const [storyToEdit, setStoryToEdit] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [bookToOpen, setBookToOpen] = useState<string | null>(null);
 
   // Navigate to a view and track history
-  const navigateToView = (view: 'dashboard' | 'library' | 'story-builder' | 'achievements' | 'settings') => {
+  const navigateToView = (view: 'dashboard' | 'library' | 'story-builder' | 'story-edit' | 'achievements' | 'settings') => {
     setViewHistory(prev => {
       // Don't add if it's the same view
       if (prev[prev.length - 1] === view) return prev;
@@ -190,7 +191,12 @@ export default function DashboardView({ user }: DashboardViewProps) {
       description: 'Start building your next amazing story',
       icon: PenTool,
       color: 'from-green-500 to-green-600',
-      action: () => navigateToView('story-builder'),
+      action: () => {
+        // Clear any existing draft when creating a new story
+        clearStoryDraft(user.id);
+        setStoryToEdit(null);
+        navigateToView('story-builder');
+      },
     },
     {
       title: 'Achievements',
@@ -242,19 +248,9 @@ export default function DashboardView({ user }: DashboardViewProps) {
   const recentStories = publishedStories;
 
         const handleEditStory = (story: any) => {
-          // Store the story to edit
+          // Store the story to edit and navigate to edit view
           setStoryToEdit(story);
-          // Load the story into the builder at the beginning (step 0)
-          navigateToView('story-builder');
-          // Use CustomEvent to navigate to first step
-          setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('editStory', { 
-              detail: { 
-                story,
-                startAtBeginning: true // Flag to start at beginning
-              } 
-            }));
-          }, 100);
+          navigateToView('story-edit');
         };
 
         const handleDeleteStory = (storyId: string) => {
@@ -293,6 +289,21 @@ export default function DashboardView({ user }: DashboardViewProps) {
                   editStory={storyToEdit}
                 />
               );
+            case 'story-edit':
+              return storyToEdit ? (
+                <StoryEditView
+                  user={user}
+                  story={storyToEdit}
+                  onBack={() => {
+                    setStoryToEdit(null);
+                    goBack();
+                  }}
+                  onSave={(updatedStory) => {
+                    handleStoryPublished(updatedStory);
+                    setStoryToEdit(null);
+                  }}
+                />
+              ) : null;
             case 'achievements':
               return <AchievementsView user={user} onBack={goBack} />;
             case 'settings':
@@ -303,13 +314,13 @@ export default function DashboardView({ user }: DashboardViewProps) {
         }
 
   return (
-    <div className="pt-0 px-4 tablet:px-6 tablet-lg:px-8 pb-2 tablet:pb-4 safe-area-inset">
+    <div className="pt-4 sm:pt-6 tablet:pt-8 px-2 sm:px-4 tablet:px-6 tablet-lg:px-8 pb-2 tablet:pb-4 safe-area-inset">
       <div className="max-w-7xl mx-auto flex flex-col">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-2 tablet:mb-3 mt-0 flex-shrink-0"
+          className="mb-2 tablet:mb-3 flex-shrink-0"
         >
           <div className="flex flex-col tablet:flex-row tablet:items-center tablet:justify-between gap-4">
             <div>
@@ -320,15 +331,12 @@ export default function DashboardView({ user }: DashboardViewProps) {
                 Ready to create some amazing stories today?
               </p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="text-right">
-                <div className="text-sm text-gray-500">Reading Streak</div>
-                <div className="text-xl tablet:text-2xl font-bold text-primary-600">
+                <div className="text-xs sm:text-sm text-gray-500">Reading Streak</div>
+                <div className="text-lg sm:text-xl tablet:text-2xl font-bold text-primary-600">
                   {publishedStories.length > 0 ? '1 day 🔥' : '0 days'}
                 </div>
-              </div>
-              <div className="w-10 h-10 tablet:w-12 tablet:h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full flex items-center justify-center text-white text-lg tablet:text-xl font-bold">
-                {user.name.charAt(0).toUpperCase()}
               </div>
             </div>
           </div>
@@ -341,24 +349,24 @@ export default function DashboardView({ user }: DashboardViewProps) {
           transition={{ delay: 0.1 }}
           className="mb-2 tablet:mb-3 flex-shrink-0"
         >
-          <h3 className="text-lg tablet:text-xl font-bold text-gray-900 mb-2 tablet:mb-3">Story Details</h3>
-          <div className="grid grid-cols-2 tablet:grid-cols-2 tablet-lg:grid-cols-4 gap-2 tablet:gap-2">
+          <h3 className="text-base sm:text-lg tablet:text-xl font-bold text-gray-900 mb-2 tablet:mb-3">Story Details</h3>
+          <div className="grid grid-cols-2 tablet:grid-cols-2 tablet-lg:grid-cols-4 gap-1.5 sm:gap-2 tablet:gap-2">
           {stats.map((stat, index) => (
             <motion.div
               key={index}
               whileHover={{ scale: 1.05 }}
-              className="card p-3 tablet:p-4"
+              className="card p-2 sm:p-3 tablet:p-4"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className={`w-8 h-8 tablet:w-10 tablet:h-10 rounded-full bg-gradient-to-r ${stat.color} flex items-center justify-center`}>
-                  <stat.icon className="w-4 h-4 tablet:w-5 tablet:h-5 text-white" />
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 tablet:w-10 tablet:h-10 rounded-full bg-gradient-to-r ${stat.color} flex items-center justify-center`}>
+                  <stat.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 tablet:w-5 tablet:h-5 text-white" />
                 </div>
                 <div className="text-right">
-                  <div className="text-xl tablet:text-2xl font-bold text-gray-900">{stat.value}</div>
-                  <div className="text-xs tablet:text-sm text-gray-500">{stat.title}</div>
+                  <div className="text-lg sm:text-xl tablet:text-2xl font-bold text-gray-900">{stat.value}</div>
+                  <div className="text-[10px] sm:text-xs tablet:text-sm text-gray-500 leading-tight">{stat.title}</div>
                 </div>
               </div>
-              <div className="text-xs tablet:text-sm text-green-600 font-medium">{stat.change}</div>
+              <div className="text-[10px] sm:text-xs tablet:text-sm text-green-600 font-medium">{stat.change}</div>
             </motion.div>
           ))}
           </div>
@@ -372,23 +380,23 @@ export default function DashboardView({ user }: DashboardViewProps) {
             transition={{ delay: 0.2 }}
             className="tablet-lg:col-span-1 flex flex-col"
           >
-            <h2 className="text-base tablet:text-lg font-bold text-gray-900 mb-2 tablet:mb-3">Quick Actions</h2>
-            <div className="space-y-2 tablet:space-y-2">
+            <h2 className="text-sm sm:text-base tablet:text-lg font-bold text-gray-900 mb-2 tablet:mb-3">Quick Actions</h2>
+            <div className="space-y-1.5 sm:space-y-2 tablet:space-y-2">
               {quickActions.map((action, index) => (
                 <motion.button
                   key={index}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={action.action}
-                  className="w-full p-3 tablet:p-4 rounded-xl border-2 border-gray-200 hover:border-primary-300 active:border-primary-400 transition-all duration-200 text-left group touch-manipulation"
+                  className="w-full p-2.5 sm:p-3 tablet:p-4 rounded-xl border-2 border-gray-200 hover:border-primary-300 active:border-primary-400 transition-all duration-200 text-left group touch-manipulation min-h-[44px]"
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 tablet:w-12 tablet:h-12 rounded-full bg-gradient-to-r ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0`}>
-                      <action.icon className="w-5 h-5 tablet:w-6 tablet:h-6 text-white" />
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 tablet:w-12 tablet:h-12 rounded-full bg-gradient-to-r ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0`}>
+                      <action.icon className="w-4.5 h-4.5 sm:w-5 sm:h-5 tablet:w-6 tablet:h-6 text-white" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm tablet:text-base text-gray-900">{action.title}</div>
-                      <div className="text-xs tablet:text-sm text-gray-600 line-clamp-1">{action.description}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-xs sm:text-sm tablet:text-base text-gray-900">{action.title}</div>
+                      <div className="text-[10px] sm:text-xs tablet:text-sm text-gray-600 line-clamp-1">{action.description}</div>
                     </div>
                   </div>
                 </motion.button>
@@ -404,18 +412,18 @@ export default function DashboardView({ user }: DashboardViewProps) {
             className="tablet-lg:col-span-2 flex flex-col"
           >
             <div className="flex items-center justify-between mb-2 tablet:mb-3">
-              <h2 className="text-base tablet:text-lg font-bold text-gray-900">Recent Stories</h2>
+              <h2 className="text-sm sm:text-base tablet:text-lg font-bold text-gray-900">Recent Stories</h2>
               {recentStories.length > 0 && (
                 <button
                   onClick={() => navigateToView('library')}
-                  className="text-primary-600 hover:text-primary-700 active:text-primary-800 font-medium text-base tablet:text-lg min-h-[44px] px-3 touch-manipulation"
+                  className="text-primary-600 hover:text-primary-700 active:text-primary-800 font-medium text-xs sm:text-sm tablet:text-lg min-h-[44px] px-2 sm:px-3 touch-manipulation"
                 >
                   View All
                 </button>
               )}
             </div>
             {recentStories.length > 0 ? (
-              <div className="grid grid-cols-1 tablet:grid-cols-2 tablet-lg:grid-cols-2 desktop:grid-cols-3 gap-2 tablet:gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 tablet:grid-cols-2 tablet-lg:grid-cols-2 desktop:grid-cols-3 gap-2 sm:gap-2.5 tablet:gap-3">
                 {recentStories.map((story, index) => (
                   <motion.div
                     key={story.id}
@@ -442,7 +450,7 @@ export default function DashboardView({ user }: DashboardViewProps) {
                         <img
                           src={story.coverImage}
                           alt={story.title}
-                          className="w-full h-32 tablet:h-40 object-cover"
+                          className="w-full h-28 sm:h-32 tablet:h-40 object-cover"
                           onError={(e) => {
                             // Hide broken image and show placeholder div
                             (e.target as HTMLImageElement).style.display = 'none';
@@ -452,54 +460,54 @@ export default function DashboardView({ user }: DashboardViewProps) {
                         />
                       ) : null}
                       <div 
-                        className={`w-full h-32 tablet:h-40 bg-gradient-to-br ${getGenreStyle(story.genre).gradient} flex items-center justify-center px-2 ${story.coverImage ? 'hidden' : ''}`}
+                        className={`w-full h-28 sm:h-32 tablet:h-40 bg-gradient-to-br ${getGenreStyle(story.genre).gradient} flex items-center justify-center px-2 ${story.coverImage ? 'hidden' : ''}`}
                         style={{ display: story.coverImage ? 'none' : 'flex' }}
                       >
-                        <div className={`text-sm tablet:text-base font-bold ${getGenreStyle(story.genre).text} text-center line-clamp-2 w-full flex items-center justify-center`}>
+                        <div className={`text-xs sm:text-sm tablet:text-base font-bold ${getGenreStyle(story.genre).text} text-center line-clamp-2 w-full flex items-center justify-center`}>
                           {story.title || 'Untitled Story'}
                         </div>
                       </div>
-                      <div className="absolute top-2 right-2 flex items-center space-x-1">
+                      <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 flex items-center space-x-0.5 sm:space-x-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEditStory(story);
                           }}
-                          className="p-1.5 bg-white/90 backdrop-blur-sm hover:bg-white rounded-full transition-colors shadow-sm"
+                          className="p-1 sm:p-1.5 bg-white/90 backdrop-blur-sm hover:bg-white rounded-full transition-colors shadow-sm min-h-[32px] min-w-[32px] touch-manipulation flex items-center justify-center"
                           title="Edit story"
                         >
-                          <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                          <Edit3 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600" />
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteStory(story.id);
                           }}
-                          className="p-1.5 bg-white/90 backdrop-blur-sm hover:bg-white rounded-full transition-colors shadow-sm text-red-600"
+                          className="p-1 sm:p-1.5 bg-white/90 backdrop-blur-sm hover:bg-white rounded-full transition-colors shadow-sm text-red-600 min-h-[32px] min-w-[32px] touch-manipulation flex items-center justify-center"
                           title="Delete story"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </button>
-                        <div className={`${getGenreStyle(story.genre).badge} backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-white`}>
+                        <div className={`${getGenreStyle(story.genre).badge} backdrop-blur-sm px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium text-white`}>
                           {story.genre}
                         </div>
                       </div>
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <div className="bg-white/90 backdrop-blur-sm rounded-lg p-2">
-                          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                      <div className="absolute bottom-1.5 left-1.5 right-1.5 sm:bottom-2 sm:left-2 sm:right-2">
+                        <div className="bg-white/90 backdrop-blur-sm rounded-lg p-1.5 sm:p-2">
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2 mb-1 sm:mb-2">
                             <div
-                              className="bg-amber-500 h-2 rounded-full transition-all duration-300"
+                              className="bg-amber-500 h-1.5 sm:h-2 rounded-full transition-all duration-300"
                               style={{ width: `${story.progress}%` }}
                             />
                           </div>
-                          <div className="text-xs text-gray-600">{story.progress}% complete</div>
+                          <div className="text-[10px] sm:text-xs text-gray-600">{story.progress}% complete</div>
                         </div>
                       </div>
                     </div>
-                    <div className="p-2 tablet:p-3">
-                      <h3 className="font-semibold text-sm tablet:text-base text-gray-900 mb-0.5 line-clamp-1">{story.title}</h3>
-                      <p className="text-xs tablet:text-sm text-gray-600">by {typeof story.author === 'object' ? story.author?.name || 'Unknown' : story.author || 'Unknown'}</p>
-                      <p className="text-xs tablet:text-sm text-gray-500 mt-1">Last read {story.lastRead}</p>
+                    <div className="p-1.5 sm:p-2 tablet:p-3">
+                      <h3 className="font-semibold text-xs sm:text-sm tablet:text-base text-gray-900 mb-0.5 line-clamp-1">{story.title}</h3>
+                      <p className="text-[10px] sm:text-xs tablet:text-sm text-gray-600">by {typeof story.author === 'object' ? story.author?.name || 'Unknown' : story.author || 'Unknown'}</p>
+                      <p className="text-[10px] sm:text-xs tablet:text-sm text-gray-500 mt-0.5 sm:mt-1">Last read {story.lastRead}</p>
                     </div>
                   </motion.div>
                 ))}
@@ -512,7 +520,12 @@ export default function DashboardView({ user }: DashboardViewProps) {
                   Start creating your first amazing story!
                 </p>
                 <button
-                  onClick={() => navigateToView('story-builder')}
+                  onClick={() => {
+                    // Clear any existing draft when creating a new story
+                    clearStoryDraft(user.id);
+                    setStoryToEdit(null);
+                    navigateToView('story-builder');
+                  }}
                   className="btn-primary min-h-[44px] tablet:min-h-[48px] text-sm tablet:text-base px-4 tablet:px-6 touch-manipulation"
                 >
                   Create Your First Story

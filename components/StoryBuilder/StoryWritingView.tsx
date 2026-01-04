@@ -581,7 +581,7 @@ export default function StoryWritingView({
                       },
                     });
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5 text-gray-600" />
@@ -638,7 +638,7 @@ export default function StoryWritingView({
                     <button
                       type="button"
                       onClick={handleRemoveImage}
-                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors flex items-center justify-center"
                       title="Remove image"
                     >
                       <X className="w-4 h-4" />

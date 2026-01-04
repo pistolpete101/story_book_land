@@ -7,6 +7,16 @@ const nextConfig = {
   // Optimize for production
   swcMinify: true,
   compress: true,
+  // Workaround for permission issues on external drives
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    return config;
+  },
   // Security headers
   async headers() {
     return [

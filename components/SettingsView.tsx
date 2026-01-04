@@ -349,7 +349,7 @@ export default function SettingsView({ user, onBack }: SettingsViewProps) {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="min-h-screen pt-4 sm:pt-6 tablet:pt-8 px-4 md:px-8 pb-4 md:pb-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <motion.div
@@ -361,7 +361,7 @@ export default function SettingsView({ user, onBack }: SettingsViewProps) {
             <div className="flex items-center space-x-4">
               <button
                 onClick={onBack}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
               >
                 <ArrowLeft className="w-6 h-6" />
               </button>

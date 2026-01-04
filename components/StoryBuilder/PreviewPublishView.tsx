@@ -374,7 +374,7 @@ export default function PreviewPublishView({
                     <img src={coverImage} alt="Front Cover" className="object-cover w-full h-full" />
                     <button
                       onClick={() => setCoverImage('')}
-                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors flex items-center justify-center"
                       title="Remove image"
                     >
                       <X className="w-4 h-4" />
@@ -431,7 +431,7 @@ export default function PreviewPublishView({
                     <img src={coverImageBack} alt="Back Cover" className="object-cover w-full h-full" />
                     <button
                       onClick={() => setCoverImageBack('')}
-                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors flex items-center justify-center"
                       title="Remove image"
                     >
                       <X className="w-4 h-4" />

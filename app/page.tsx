@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingView from '@/components/OnboardingView';
 import DashboardView from '@/components/DashboardView';
-import DeviceRecommendation from '@/components/DeviceRecommendation';
 import { User } from '@/types/User';
 import { getUserStories } from '@/lib/storage';
 
@@ -14,18 +13,25 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    const userId = 'test-user-123'; // Consistent user ID
+    // Ensure we're in the browser
+    if (typeof window === 'undefined') {
+      setIsLoading(false);
+      return;
+    }
     
-    // Check for stories FIRST - this is the most reliable indicator
-    const existingStories = getUserStories(userId);
-    const hasStories = existingStories && existingStories.length > 0;
-    console.log('Home: Checking for stories', { userId, hasStories, count: existingStories?.length });
-    
-    // Try to load saved user data first
-    const savedUserData = localStorage.getItem(`user_${userId}`);
-    let testUser: User;
-    
-    if (savedUserData) {
+    try {
+      const userId = 'test-user-123'; // Consistent user ID
+      
+      // Check for stories FIRST - this is the most reliable indicator
+      const existingStories = getUserStories(userId);
+      const hasStories = existingStories && existingStories.length > 0;
+      console.log('Home: Checking for stories', { userId, hasStories, count: existingStories?.length });
+      
+      // Try to load saved user data first
+      const savedUserData = localStorage.getItem(`user_${userId}`);
+      let testUser: User;
+      
+      if (savedUserData) {
       try {
         const parsed = JSON.parse(savedUserData);
         testUser = {
@@ -60,9 +66,9 @@ export default function Home() {
           lastActiveAt: new Date(),
         };
       }
-    } else {
-      // No saved user data, create default
-      testUser = {
+      } else {
+        // No saved user data, create default
+        testUser = {
         id: userId,
         name: 'Test User',
         email: 'test@storybookland.com',
@@ -76,44 +82,63 @@ export default function Home() {
         createdAt: new Date(),
         lastActiveAt: new Date(),
       };
-    }
-    
-    const onboardingComplete = localStorage.getItem(`onboarding_${userId}`);
-    
-    // Skip onboarding if it's already complete OR if user has stories
-    if (onboardingComplete || hasStories) {
-      // If user has stories but no onboarding data, try to load user info from localStorage
-      if (hasStories && !onboardingComplete) {
-        const savedAge = localStorage.getItem(`age_${userId}`);
-        const savedGenres = localStorage.getItem(`genres_${userId}`);
-        const savedReadingLevel = localStorage.getItem(`readingLevel_${userId}`);
-        const savedName = localStorage.getItem(`name_${userId}`);
-        
-        if (savedName) {
-          testUser.name = savedName;
-        }
-        if (savedAge) {
-          testUser.age = parseInt(savedAge, 10);
-        }
-        if (savedGenres) {
-          try {
-            testUser.preferences.favoriteGenres = JSON.parse(savedGenres);
-          } catch (e) {
-            // Keep default genres
-          }
-        }
-        if (savedReadingLevel) {
-          const validLevels = ['beginner', 'intermediate', 'advanced'] as const;
-          if (validLevels.includes(savedReadingLevel as any)) {
-            testUser.preferences.readingLevel = savedReadingLevel as 'beginner' | 'intermediate' | 'advanced';
-          }
-        }
       }
-      setUser(testUser);
-    } else {
-      setShowOnboarding(true);
+      
+      const onboardingComplete = localStorage.getItem(`onboarding_${userId}`);
+      
+      // Skip onboarding if it's already complete OR if user has stories
+      if (onboardingComplete || hasStories) {
+        // If user has stories but no onboarding data, try to load user info from localStorage
+        if (hasStories && !onboardingComplete) {
+          const savedAge = localStorage.getItem(`age_${userId}`);
+          const savedGenres = localStorage.getItem(`genres_${userId}`);
+          const savedReadingLevel = localStorage.getItem(`readingLevel_${userId}`);
+          const savedName = localStorage.getItem(`name_${userId}`);
+          
+          if (savedName) {
+            testUser.name = savedName;
+          }
+          if (savedAge) {
+            testUser.age = parseInt(savedAge, 10);
+          }
+          if (savedGenres) {
+            try {
+              testUser.preferences.favoriteGenres = JSON.parse(savedGenres);
+            } catch (e) {
+              // Keep default genres
+            }
+          }
+          if (savedReadingLevel) {
+            const validLevels = ['beginner', 'intermediate', 'advanced'] as const;
+            if (validLevels.includes(savedReadingLevel as any)) {
+              testUser.preferences.readingLevel = savedReadingLevel as 'beginner' | 'intermediate' | 'advanced';
+            }
+          }
+        }
+        setUser(testUser);
+      } else {
+        setShowOnboarding(true);
+      }
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Home: Error initializing user', error);
+      // Set a default user on error
+      setUser({
+        id: 'test-user-123',
+        name: 'Test User',
+        email: 'test@storybookland.com',
+        age: 8,
+        preferences: {
+          favoriteGenres: ['adventure', 'fantasy'],
+          readingLevel: 'intermediate',
+          theme: 'light',
+        },
+        achievements: [],
+        createdAt: new Date(),
+        lastActiveAt: new Date(),
+      });
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const handleOnboardingComplete = (userData: User) => {
@@ -158,8 +183,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen pt-0 px-4 tablet:px-6 tablet-lg:px-8 pb-2 tablet:pb-4 safe-area-inset">
-      <DeviceRecommendation />
+    <div className="min-h-screen pt-0 px-2 sm:px-4 tablet:px-6 tablet-lg:px-8 pb-2 tablet:pb-4 safe-area-inset">
       <AnimatePresence mode="wait">
         {showOnboarding ? (
           <motion.div

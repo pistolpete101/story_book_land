@@ -204,13 +204,13 @@ export default function CharacterCreationView({
               <div className="flex space-x-2">
                 <button
                   onClick={() => handleEditCharacter(character)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
                 >
                   <Edit3 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDeleteCharacter(character.id)}
-                  className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-600"
+                  className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-600 flex items-center justify-center"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

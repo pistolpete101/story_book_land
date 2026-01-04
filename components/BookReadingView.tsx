@@ -70,6 +70,11 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
     }
   }, [isEditing, currentPage]);
 
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPage]);
+
   const handleNextPage = () => {
     if (currentPage < pages.length) {
       setCurrentPage(currentPage + 1);
@@ -168,58 +173,65 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
   };
 
   const handlePrint = () => {
-    // Generate all pages including cover, TOC, and chapters
-    const allPages: any[] = [];
-    let currentPageNum = 1;
-    
-    // Add Cover/Title Page
-    allPages.push({
-      id: 'cover',
-      pageNumber: currentPageNum++,
-      title: book.title,
-      isCover: true,
-      author: book.author || 'Unknown',
-      description: (book as any).description || '',
-      genre: book.genre || '',
-    });
-    
-    // Add Table of Contents if there are chapters
-    if (pages.length > 0) {
+    try {
+      // Generate all pages including cover, TOC, and chapters
+      const allPages: any[] = [];
+      let currentPageNum = 1;
+      
+      // Add Cover/Title Page
       allPages.push({
-        id: 'toc',
+        id: 'cover',
         pageNumber: currentPageNum++,
-        title: 'Table of Contents',
-        isTOC: true,
-        chapters: pages.map((chapter: any, index: number) => ({
-          ...chapter,
-          pageNumber: currentPageNum + index, // Chapters start after TOC
-          image: chapter.image, // Include image in TOC data
-        })),
+        title: book.title,
+        isCover: true,
+        author: book.author || 'Unknown',
+        description: (book as any).description || '',
+        genre: book.genre || '',
       });
-    }
-    
-    // Add all chapters with their settings
-    pages.forEach((chapter: any, index: number) => {
-      allPages.push({
-        id: chapter.id,
-        pageNumber: currentPageNum++,
-        title: chapter.title,
-        content: chapter.content,
-        chapterNumber: chapter.chapterNumber || index + 1,
-        image: chapter.image,
-        layout: chapter.layout || 'image-text',
-        settings: chapter.settings || {},
-        characters: chapter.characters || [],
+      
+      // Add Table of Contents if there are chapters
+      if (pages.length > 0) {
+        allPages.push({
+          id: 'toc',
+          pageNumber: currentPageNum++,
+          title: 'Table of Contents',
+          isTOC: true,
+          chapters: pages.map((chapter: any, index: number) => ({
+            ...chapter,
+            pageNumber: currentPageNum + index, // Chapters start after TOC
+            image: chapter.image, // Include image in TOC data
+          })),
+        });
+      }
+      
+      // Add all chapters with their settings
+      pages.forEach((chapter: any, index: number) => {
+        allPages.push({
+          id: chapter.id,
+          pageNumber: currentPageNum++,
+          title: chapter.title,
+          content: chapter.content,
+          chapterNumber: chapter.chapterNumber || index + 1,
+          image: chapter.image,
+          layout: chapter.layout || 'image-text',
+          settings: chapter.settings || {},
+          characters: chapter.characters || [],
+        });
       });
-    });
 
-    // Create a print-friendly version with all pages
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      // Fallback to regular print if popup blocked
-      window.print();
-      return;
-    }
+      // Create a print-friendly version with all pages
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        // Fallback to regular print if popup blocked
+        window.print();
+        return;
+      }
+
+      // Add error handler for print window
+      printWindow.onerror = (error) => {
+        console.error('Print window error:', error);
+        printWindow.close();
+      };
 
     const printContent = `
       <!DOCTYPE html>
@@ -449,13 +461,27 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
       </html>
     `;
 
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    
-    // Wait a bit for content to render, then print
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      // Wait a bit for content to render, then print
+      setTimeout(() => {
+        try {
+          printWindow.print();
+          // Don't auto-close the window - let user close it manually after printing
+          // This prevents the app from crashing
+        } catch (error) {
+          console.error('Print error:', error);
+          // If print fails, close the window
+          if (printWindow && !printWindow.closed) {
+            printWindow.close();
+          }
+        }
+      }, 500);
+    } catch (error) {
+      console.error('Print function error:', error);
+      alert('Failed to open print dialog. Please try again.');
+    }
   };
 
   const progressPercentage = pages.length > 0 ? (currentPage / pages.length) * 100 : 0;
@@ -473,7 +499,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
             <div className="flex items-center space-x-4">
               <button
                 onClick={onBack}
-                className="p-2 hover:bg-amber-100 rounded-full transition-colors"
+                className="p-2 hover:bg-amber-100 rounded-full transition-colors flex items-center justify-center"
               >
                 <ArrowLeft className="w-6 h-6" />
               </button>
@@ -486,7 +512,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="p-2 hover:bg-amber-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-amber-100 rounded-full transition-colors flex items-center justify-center"
                   title="Edit inline"
                 >
                   <Edit3 className="w-5 h-5" />
@@ -495,14 +521,14 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                 <>
                   <button
                     onClick={handleSaveEdit}
-                    className="p-2 hover:bg-green-100 rounded-full transition-colors text-green-600"
+                    className="p-2 hover:bg-green-100 rounded-full transition-colors text-green-600 flex items-center justify-center"
                     title="Save changes"
                   >
                     <Save className="w-5 h-5" />
                   </button>
                   <button
                     onClick={handleCancelEdit}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600"
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 flex items-center justify-center"
                     title="Cancel editing"
                   >
                     <X className="w-5 h-5" />
@@ -511,7 +537,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
               )}
               <button
                 onClick={handlePrint}
-                className="p-2 hover:bg-amber-100 rounded-full transition-colors"
+                className="p-2 hover:bg-amber-100 rounded-full transition-colors flex items-center justify-center"
                 title="Print"
               >
                 <Printer className="w-5 h-5" />
@@ -519,7 +545,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
               {onDelete && (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-500"
+                  className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-500 flex items-center justify-center"
                   title="Delete story"
                 >
                   <Trash2 className="w-5 h-5" />
@@ -614,7 +640,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                           />
                           <button
                             onClick={handleAddImage}
-                            className="absolute top-2 right-2 p-2 bg-white/90 hover:bg-white rounded-full shadow-md transition-colors"
+                            className="absolute top-2 right-2 p-2 bg-white/90 hover:bg-white rounded-full shadow-md transition-colors flex items-center justify-center"
                             title="Change image"
                           >
                             <ImageIcon className="w-4 h-4 text-gray-700" />
@@ -639,7 +665,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                           />
                           <button
                             onClick={handleAddImage}
-                            className="absolute top-2 right-2 p-2 bg-white/90 hover:bg-white rounded-full shadow-md transition-colors"
+                            className="absolute top-2 right-2 p-2 bg-white/90 hover:bg-white rounded-full shadow-md transition-colors flex items-center justify-center"
                             title="Change image"
                           >
                             <ImageIcon className="w-4 h-4 text-gray-700" />
@@ -728,7 +754,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
           <div className="flex items-center space-x-4">
             <button 
               onClick={handleFavorite}
-              className={`p-2 rounded-full transition-colors ${
+              className={`p-2 rounded-full transition-colors flex items-center justify-center ${
                 isFavorite 
                   ? 'bg-red-100 text-red-500' 
                   : 'bg-amber-100 hover:bg-amber-200 text-gray-600'
@@ -738,7 +764,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
             </button>
             <button 
               onClick={handlePrint}
-              className="p-2 bg-amber-100 hover:bg-amber-200 text-gray-600 rounded-full transition-colors"
+              className="p-2 bg-amber-100 hover:bg-amber-200 text-gray-600 rounded-full transition-colors flex items-center justify-center"
               title="Print story"
             >
               <Printer className="w-5 h-5" />
@@ -748,7 +774,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                 <button
                   key={star}
                   onClick={() => handleRating(star)}
-                  className={`transition-colors ${
+                  className={`transition-colors flex items-center justify-center ${
                     star <= rating ? 'text-amber-500' : 'text-gray-300'
                   }`}
                 >
@@ -760,7 +786,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
 
           <button
             onClick={currentPage === pages.length ? handleFinished : handleNextPage}
-            className="flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white"
+            className="hidden sm:flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white"
           >
             <span>{currentPage === pages.length ? 'Finished!' : 'Next'}</span>
             {currentPage < pages.length && <ArrowRight className="w-5 h-5" />}
@@ -774,9 +800,10 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
               <button
                 key={index}
                 onClick={() => setCurrentPage(index + 1)}
-                className={`w-3 h-3 rounded-full transition-all ${
-                  index + 1 === currentPage ? 'bg-amber-500' : 'bg-gray-300'
+                className={`w-3 h-3 rounded-full transition-all cursor-pointer hover:scale-125 min-w-[12px] min-h-[12px] touch-manipulation ${
+                  index + 1 === currentPage ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gray-300 hover:bg-gray-400'
                 }`}
+                title={`Go to page ${index + 1}`}
               />
             ))}
           </div>

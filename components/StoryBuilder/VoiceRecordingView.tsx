@@ -152,7 +152,7 @@ export default function VoiceRecordingView({ onRecordingComplete, onClose }: Voi
             <div className="flex items-center justify-center space-x-4">
               <button
                 onClick={playRecording}
-                className="p-3 bg-primary-100 rounded-full hover:bg-primary-200 transition-colors"
+                className="p-3 bg-primary-100 rounded-full hover:bg-primary-200 transition-colors flex items-center justify-center"
               >
                 {isPlaying ? <Pause className="w-6 h-6 text-primary-600" /> : <Play className="w-6 h-6 text-primary-600" />}
               </button>

@@ -68,17 +68,13 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
     },
   ];
 
-  // Load draft on mount
+  // Start at step 0 for new stories
   const [currentStep, setCurrentStep] = useState(() => {
     // If editing a story, always start at the beginning (step 0)
     if (editStory) {
       return 0;
     }
-    const draft = getStoryDraft(user.id);
-    if (draft && draft.lastStep) {
-      const stepIndex = steps.findIndex(step => step.id === draft.lastStep);
-      return stepIndex >= 0 ? stepIndex : 0;
-    }
+    // Don't load draft step - always start fresh for new stories
     return 0;
   });
 
@@ -91,11 +87,8 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
         id: editStory.id, // Preserve the story ID
       };
     }
-    // Otherwise, try to load draft
-    const draft = getStoryDraft(user.id);
-    if (draft && draft.data) {
-      return { ...initialStoryData, ...draft.data };
-    }
+    // Don't load draft on mount - start fresh for new stories
+    // Drafts are only loaded when explicitly continuing a draft
     return initialStoryData;
   });
 
@@ -287,7 +280,7 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
             <div className="flex items-center space-x-4">
               <button
                 onClick={handleBackWithSave}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
               >
                 <ArrowLeft className="w-6 h-6" />
               </button>
