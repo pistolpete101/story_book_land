@@ -31,7 +31,7 @@ interface Character {
     clothing: string;
     accessories: string[];
   };
-  role: 'protagonist' | 'antagonist' | 'supporting' | 'narrator';
+  role: 'protagonist' | 'antagonist' | 'supporting' | 'narrator' | 'other' | string;
   age?: number;
   species?: string;
   powers?: string[];
@@ -106,9 +106,10 @@ export default function CharacterCreationView({
   };
 
   // Get current personality traits based on selected role
-  const personalityTraits = getPersonalityTraitsForRole(
-    newCharacter.role === 'other' ? customRole : (newCharacter.role || 'protagonist')
-  );
+  const currentRole = (newCharacter.role === 'other' || newCharacter.role === undefined) 
+    ? (customRole || 'protagonist') 
+    : newCharacter.role;
+  const personalityTraits = getPersonalityTraitsForRole(currentRole);
 
   const speciesOptions = [
     'Human', 'Animal', 'Robot', 'Alien', 'Fairy', 'Dragon', 'Wizard', 'Princess', 'Prince', 'Other'
