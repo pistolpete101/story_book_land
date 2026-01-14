@@ -49,6 +49,9 @@ export default function CharacterCreationView({
   const [characters, setCharacters] = useState<Character[]>(storyData.characters || []);
   const [showCharacterForm, setShowCharacterForm] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+  const [customRole, setCustomRole] = useState('');
+  const [customTrait, setCustomTrait] = useState('');
+  const [customSpecies, setCustomSpecies] = useState('');
   const [newCharacter, setNewCharacter] = useState<Partial<Character>>({
     name: '',
     description: '',
@@ -69,13 +72,46 @@ export default function CharacterCreationView({
     powers: [],
   });
 
-  const personalityTraits = [
-    'Brave', 'Kind', 'Funny', 'Smart', 'Curious', 'Shy', 'Adventurous', 'Creative',
-    'Loyal', 'Honest', 'Playful', 'Wise', 'Energetic', 'Calm', 'Friendly', 'Mysterious'
-  ];
+  // Role-based personality traits
+  const getPersonalityTraitsForRole = (role: string) => {
+    const roleLower = role.toLowerCase();
+    
+    if (roleLower === 'antagonist' || roleLower.includes('villain') || roleLower.includes('evil')) {
+      return [
+        'Cunning', 'Sneaky', 'Bold', 'Ambitious', 'Clever', 'Mysterious', 'Powerful', 'Determined',
+        'Ruthless', 'Deceptive', 'Confident', 'Strategic', 'Intimidating', 'Persuasive', 'Greedy', 'Revengeful'
+      ];
+    } else if (roleLower === 'protagonist' || roleLower.includes('hero')) {
+      return [
+        'Brave', 'Kind', 'Funny', 'Smart', 'Curious', 'Adventurous', 'Creative',
+        'Loyal', 'Honest', 'Playful', 'Wise', 'Energetic', 'Calm', 'Friendly', 'Determined', 'Hopeful'
+      ];
+    } else if (roleLower === 'supporting') {
+      return [
+        'Helpful', 'Friendly', 'Supportive', 'Cheerful', 'Reliable', 'Patient', 'Understanding', 'Encouraging',
+        'Optimistic', 'Caring', 'Thoughtful', 'Generous', 'Cooperative', 'Trustworthy', 'Compassionate', 'Empathetic'
+      ];
+    } else if (roleLower === 'narrator') {
+      return [
+        'Wise', 'Observant', 'Thoughtful', 'Reflective', 'Calm', 'Patient', 'Insightful', 'Perceptive',
+        'Eloquent', 'Philosophical', 'Analytical', 'Contemplative', 'Knowledgeable', 'Articulate', 'Meditative', 'Understanding'
+      ];
+    } else {
+      // Default traits for custom roles
+      return [
+        'Brave', 'Kind', 'Funny', 'Smart', 'Curious', 'Shy', 'Adventurous', 'Creative',
+        'Loyal', 'Honest', 'Playful', 'Wise', 'Energetic', 'Calm', 'Friendly', 'Mysterious'
+      ];
+    }
+  };
+
+  // Get current personality traits based on selected role
+  const personalityTraits = getPersonalityTraitsForRole(
+    newCharacter.role === 'other' ? customRole : (newCharacter.role || 'protagonist')
+  );
 
   const speciesOptions = [
-    'Human', 'Animal', 'Robot', 'Alien', 'Fairy', 'Dragon', 'Wizard', 'Princess', 'Prince'
+    'Human', 'Animal', 'Robot', 'Alien', 'Fairy', 'Dragon', 'Wizard', 'Princess', 'Prince', 'Other'
   ];
 
   const powerOptions = [
@@ -85,15 +121,25 @@ export default function CharacterCreationView({
 
   const handleAddCharacter = () => {
     if (newCharacter.name && newCharacter.description) {
+      // Use custom role if "other" is selected and customRole is provided
+      const finalRole = newCharacter.role === 'other' && customRole.trim() 
+        ? customRole.trim() 
+        : (newCharacter.role || 'protagonist');
+      
+      // Use custom species if "other" is selected and customSpecies is provided
+      const finalSpecies = newCharacter.species === 'other' && customSpecies.trim()
+        ? customSpecies.trim()
+        : (newCharacter.species || 'human');
+      
       const character: Character = {
         id: Math.random().toString(36).substr(2, 9),
         name: newCharacter.name,
         description: newCharacter.description,
         personality: newCharacter.personality || { traits: [], likes: [], dislikes: [] },
         appearance: newCharacter.appearance || { hairColor: '', eyeColor: '', clothing: '', accessories: [] },
-        role: newCharacter.role || 'protagonist',
+        role: finalRole,
         age: newCharacter.age || 8,
-        species: newCharacter.species || 'human',
+        species: finalSpecies,
         powers: newCharacter.powers || [],
       };
       setCharacters([...characters, character]);
@@ -107,6 +153,9 @@ export default function CharacterCreationView({
         species: 'human',
         powers: [],
       });
+      setCustomRole('');
+      setCustomTrait('');
+      setCustomSpecies('');
       setShowCharacterForm(false);
     }
   };
@@ -114,14 +163,40 @@ export default function CharacterCreationView({
   const handleEditCharacter = (character: Character) => {
     setEditingCharacter(character);
     setNewCharacter(character);
+    // Check if role is a custom role (not in the standard list)
+    const standardRoles = ['protagonist', 'antagonist', 'supporting', 'narrator'];
+    if (character.role && !standardRoles.includes(character.role)) {
+      setCustomRole(character.role);
+      setNewCharacter(prev => ({ ...prev, role: 'other' }));
+    } else {
+      setCustomRole('');
+    }
+    // Check if species is a custom species (not in the standard list)
+    const standardSpecies = ['human', 'animal', 'robot', 'alien', 'fairy', 'dragon', 'wizard', 'princess', 'prince'];
+    if (character.species && !standardSpecies.includes(character.species.toLowerCase())) {
+      setCustomSpecies(character.species);
+      setNewCharacter(prev => ({ ...prev, species: 'other' }));
+    } else {
+      setCustomSpecies('');
+    }
     setShowCharacterForm(true);
   };
 
   const handleUpdateCharacter = () => {
     if (editingCharacter && newCharacter.name && newCharacter.description) {
+      // Use custom role if "other" is selected and customRole is provided
+      const finalRole = newCharacter.role === 'other' && customRole.trim() 
+        ? customRole.trim() 
+        : (newCharacter.role || 'protagonist');
+      
+      // Use custom species if "other" is selected and customSpecies is provided
+      const finalSpecies = newCharacter.species === 'other' && customSpecies.trim()
+        ? customSpecies.trim()
+        : (newCharacter.species || 'human');
+      
       setCharacters(characters.map(c => 
         c.id === editingCharacter.id 
-          ? { ...c, ...newCharacter } as Character
+          ? { ...c, ...newCharacter, role: finalRole, species: finalSpecies } as Character
           : c
       ));
       setEditingCharacter(null);
@@ -135,6 +210,9 @@ export default function CharacterCreationView({
         species: 'human',
         powers: [],
       });
+      setCustomRole('');
+      setCustomTrait('');
+      setCustomSpecies('');
       setShowCharacterForm(false);
     }
   };
@@ -158,6 +236,23 @@ export default function CharacterCreationView({
         [type]: updatedTraits,
       },
     }));
+  };
+
+  const handleAddCustomTrait = () => {
+    if (customTrait.trim()) {
+      const currentTraits = newCharacter.personality?.traits || [];
+      if (!currentTraits.includes(customTrait.trim())) {
+        setNewCharacter(prev => ({
+          ...prev,
+          personality: {
+            traits: [...currentTraits, customTrait.trim()],
+            likes: prev.personality?.likes || [],
+            dislikes: prev.personality?.dislikes || [],
+          },
+        }));
+        setCustomTrait('');
+      }
+    }
   };
 
   const handleNext = () => {
@@ -287,14 +382,48 @@ export default function CharacterCreationView({
                   </label>
                   <select
                     value={newCharacter.role || 'protagonist'}
-                    onChange={(e) => setNewCharacter(prev => ({ ...prev, role: e.target.value as any }))}
+                    onChange={(e) => {
+                      const newRole = e.target.value as any;
+                      setNewCharacter(prev => ({ 
+                        ...prev, 
+                        role: newRole,
+                        // Clear traits when role changes so user can select traits matching the new role
+                        personality: {
+                          ...prev.personality,
+                          traits: []
+                        }
+                      }));
+                      if (newRole !== 'other') {
+                        setCustomRole('');
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="protagonist">Hero/Protagonist</option>
                     <option value="antagonist">Villain/Antagonist</option>
                     <option value="supporting">Supporting Character</option>
                     <option value="narrator">Narrator</option>
+                    <option value="other">Other (specify)</option>
                   </select>
+                  {newCharacter.role === 'other' && (
+                    <input
+                      type="text"
+                      value={customRole}
+                      onChange={(e) => {
+                        setCustomRole(e.target.value);
+                        // Clear traits when custom role changes
+                        setNewCharacter(prev => ({
+                          ...prev,
+                          personality: {
+                            ...prev.personality,
+                            traits: []
+                          }
+                        }));
+                      }}
+                      className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      placeholder="Enter custom role..."
+                    />
+                  )}
                 </div>
               </div>
 
@@ -315,8 +444,11 @@ export default function CharacterCreationView({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Personality Traits
+                  <span className="text-xs text-gray-500 ml-2">
+                    (Traits match {newCharacter.role === 'other' && customRole ? `"${customRole}"` : newCharacter.role === 'antagonist' ? 'Villain' : newCharacter.role === 'protagonist' ? 'Hero' : newCharacter.role || 'Hero'} role)
+                  </span>
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-3">
                   {personalityTraits.map((trait) => (
                     <button
                       key={trait}
@@ -331,6 +463,57 @@ export default function CharacterCreationView({
                     </button>
                   ))}
                 </div>
+                {/* Custom Trait Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customTrait}
+                    onChange={(e) => setCustomTrait(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomTrait();
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Add custom trait..."
+                  />
+                  <button
+                    onClick={handleAddCustomTrait}
+                    disabled={!customTrait.trim()}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                      !customTrait.trim()
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-primary-500 text-white hover:bg-primary-600'
+                    }`}
+                  >
+                    Add
+                  </button>
+                </div>
+                {/* Display custom traits */}
+                {newCharacter.personality?.traits?.some(trait => !personalityTraits.includes(trait)) && (
+                  <div className="mt-3">
+                    <div className="text-xs text-gray-600 mb-2">Custom Traits:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {newCharacter.personality.traits
+                        .filter(trait => !personalityTraits.includes(trait))
+                        .map((trait, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm flex items-center gap-2"
+                          >
+                            {trait}
+                            <button
+                              onClick={() => handleTraitToggle(trait, 'traits')}
+                              className="hover:text-purple-900"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Species and Powers */}
@@ -341,7 +524,13 @@ export default function CharacterCreationView({
                   </label>
                   <select
                     value={newCharacter.species || 'human'}
-                    onChange={(e) => setNewCharacter(prev => ({ ...prev, species: e.target.value }))}
+                    onChange={(e) => {
+                      const newSpecies = e.target.value;
+                      setNewCharacter(prev => ({ ...prev, species: newSpecies }));
+                      if (newSpecies !== 'other') {
+                        setCustomSpecies('');
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     {speciesOptions.map((species) => (
@@ -350,6 +539,15 @@ export default function CharacterCreationView({
                       </option>
                     ))}
                   </select>
+                  {newCharacter.species === 'other' && (
+                    <input
+                      type="text"
+                      value={customSpecies}
+                      onChange={(e) => setCustomSpecies(e.target.value)}
+                      className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      placeholder="Enter custom species..."
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -383,6 +581,9 @@ export default function CharacterCreationView({
                     species: 'human',
                     powers: [],
                   });
+                  setCustomRole('');
+                  setCustomTrait('');
+                  setCustomSpecies('');
                 }}
                 className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >

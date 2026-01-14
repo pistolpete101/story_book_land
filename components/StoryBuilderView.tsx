@@ -89,7 +89,11 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
     }
     // Don't load draft on mount - start fresh for new stories
     // Drafts are only loaded when explicitly continuing a draft
-    return initialStoryData;
+    // Generate a consistent ID for new stories to prevent duplicates
+    return {
+      ...initialStoryData,
+      id: Math.random().toString(36).substr(2, 9), // Generate ID once on mount
+    };
   });
 
   // Update storyData when editStory prop changes
@@ -121,10 +125,14 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
   }, []);
 
   // Auto-save draft whenever storyData or currentStep changes
+  // Use a debounced effect to prevent excessive saves
   useEffect(() => {
-    // Only save if there's meaningful data
+    // Only save if there's meaningful data and a story ID exists
     const hasData = storyData.title || storyData.genre || storyData.chapters?.length > 0 || storyData.characters?.length > 0;
-    if (hasData) {
+    if (!hasData || !storyData.id) return;
+
+    // Debounce saves to prevent duplicates on rapid changes
+    const timeoutId = setTimeout(() => {
       // Save to draft storage
       saveStoryDraft(user.id, {
         data: storyData,
@@ -133,9 +141,10 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
       });
 
       // Also save as a draft story in the library if there's a title
+      // Always use the same story ID to prevent duplicates
       if (storyData.title) {
         const draftStory = {
-          id: storyData.id || `draft-${Date.now()}`,
+          id: storyData.id, // Always use the same ID
           title: storyData.title,
           author: user.name,
           genre: storyData.genre || 'Unknown',
@@ -159,7 +168,9 @@ export default function StoryBuilderView({ user, onBack, onStoryPublished, editS
         };
         saveUserStory(user.id, draftStory as any);
       }
-    }
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timeoutId);
   }, [storyData, currentStep, user.id, user.name]);
 
   // Save on unmount or when navigating away

@@ -14,7 +14,7 @@ export interface Character {
     clothing: string;
     accessories: string[];
   };
-  role: 'protagonist' | 'antagonist' | 'supporting' | 'narrator';
+  role: 'protagonist' | 'antagonist' | 'supporting' | 'narrator' | string; // Allow custom roles
   age?: number;
   species?: string;
   powers?: string[];

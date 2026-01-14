@@ -45,25 +45,66 @@ export function getUserStories(userId: string): Story[] {
     const stories = JSON.parse(stored);
     console.log('getUserStories: Parsed stories', stories.length);
     
-    // Deduplicate stories by ID (keep the most recent one)
+    // Enhanced deduplication: by ID and also by title+author if ID is missing
     const storyMap = new Map<string, any>();
+    const titleAuthorMap = new Map<string, any>(); // Fallback for stories without IDs
+    
     stories.forEach((story: any) => {
       if (story.id) {
+        // Primary deduplication by ID
         const existing = storyMap.get(story.id);
-        if (!existing || new Date(story.updatedAt) > new Date(existing.updatedAt)) {
+        if (!existing) {
           storyMap.set(story.id, story);
+        } else {
+          // Keep the most recent version
+          const existingDate = existing.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+          const currentDate = story.updatedAt ? new Date(story.updatedAt) : new Date(0);
+          if (currentDate > existingDate) {
+            storyMap.set(story.id, story);
+          }
+        }
+      } else {
+        // Fallback: deduplicate by title + author for stories without IDs
+        const titleAuthorKey = `${story.title || ''}_${story.author || ''}`;
+        const existing = titleAuthorMap.get(titleAuthorKey);
+        if (!existing) {
+          titleAuthorMap.set(titleAuthorKey, story);
+        } else {
+          const existingDate = existing.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+          const currentDate = story.updatedAt ? new Date(story.updatedAt) : new Date(0);
+          if (currentDate > existingDate) {
+            titleAuthorMap.set(titleAuthorKey, story);
+          }
         }
       }
     });
     
+    // Combine both maps, prioritizing ID-based stories
     const uniqueStories = Array.from(storyMap.values());
+    titleAuthorMap.forEach((story) => {
+      // Only add if not already in uniqueStories (by title+author check)
+      const exists = uniqueStories.some(s => 
+        s.title === story.title && s.author === story.author
+      );
+      if (!exists) {
+        uniqueStories.push(story);
+      }
+    });
+    
     console.log('getUserStories: After deduplication', uniqueStories.length);
+    
+    // Sort by updatedAt descending (most recent first)
+    uniqueStories.sort((a, b) => {
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return dateB - dateA;
+    });
     
     // Convert date strings back to Date objects
     return uniqueStories.map((story: any) => ({
       ...story,
-      createdAt: new Date(story.createdAt),
-      updatedAt: new Date(story.updatedAt),
+      createdAt: story.createdAt ? new Date(story.createdAt) : new Date(),
+      updatedAt: story.updatedAt ? new Date(story.updatedAt) : new Date(),
       publishedAt: story.publishedAt ? new Date(story.publishedAt) : undefined,
     }));
   } catch (error) {
@@ -77,19 +118,52 @@ export function saveUserStory(userId: string, story: Story): void {
   
   console.log('saveUserStory: Saving story', { userId, storyId: story.id, title: story.title });
   const stories = getUserStories(userId);
+  
+  // Ensure story has an ID
+  if (!story.id) {
+    console.warn('saveUserStory: Story missing ID, generating one');
+    story.id = Math.random().toString(36).substr(2, 9);
+  }
+  
+  // Find existing story by ID
   const existingIndex = stories.findIndex(s => s.id === story.id);
   
   if (existingIndex >= 0) {
-    stories[existingIndex] = story;
+    // Update existing story, preserving createdAt if it exists
+    const existingStory = stories[existingIndex];
+    stories[existingIndex] = {
+      ...story,
+      createdAt: story.createdAt || existingStory.createdAt || new Date(),
+      updatedAt: new Date(), // Always update the updatedAt timestamp
+    };
     console.log('saveUserStory: Updated existing story');
   } else {
-    stories.push(story);
+    // Add new story with timestamps
+    stories.push({
+      ...story,
+      createdAt: story.createdAt || new Date(),
+      updatedAt: story.updatedAt || new Date(),
+    });
     console.log('saveUserStory: Added new story, total:', stories.length);
   }
   
+  // Save back to localStorage with deduplication
   const key = getUserStoriesKey(userId);
-  localStorage.setItem(key, JSON.stringify(stories));
-  console.log('saveUserStory: Saved to localStorage key', key, 'with', stories.length, 'stories');
+  
+  // Final deduplication pass before saving
+  const storyMap = new Map<string, Story>();
+  stories.forEach((s: Story) => {
+    if (s.id) {
+      const existing = storyMap.get(s.id);
+      if (!existing || new Date(s.updatedAt) > new Date(existing.updatedAt)) {
+        storyMap.set(s.id, s);
+      }
+    }
+  });
+  
+  const deduplicatedStories = Array.from(storyMap.values());
+  localStorage.setItem(key, JSON.stringify(deduplicatedStories));
+  console.log('saveUserStory: Saved to localStorage key', key, 'with', deduplicatedStories.length, 'stories');
 }
 
 export function deleteUserStory(userId: string, storyId: string): void {
