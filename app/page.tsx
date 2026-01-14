@@ -11,6 +11,7 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     // Ensure we're in the browser
@@ -23,12 +24,24 @@ export default function Home() {
       const userId = 'test-user-123'; // Consistent user ID
       
       // Check for stories FIRST - this is the most reliable indicator
-      const existingStories = getUserStories(userId);
+      // Wrap in try-catch to handle any storage errors
+      let existingStories: any[] = [];
+      try {
+        existingStories = getUserStories(userId);
+      } catch (storageError) {
+        console.error('Error loading stories:', storageError);
+        existingStories = [];
+      }
       const hasStories = existingStories && existingStories.length > 0;
       console.log('Home: Checking for stories', { userId, hasStories, count: existingStories?.length });
       
       // Try to load saved user data first
-      const savedUserData = localStorage.getItem(`user_${userId}`);
+      let savedUserData: string | null = null;
+      try {
+        savedUserData = localStorage.getItem(`user_${userId}`);
+      } catch (e) {
+        console.error('Error accessing localStorage:', e);
+      }
       let testUser: User;
       
       if (savedUserData) {
@@ -84,16 +97,29 @@ export default function Home() {
       };
       }
       
-      const onboardingComplete = localStorage.getItem(`onboarding_${userId}`);
+      let onboardingComplete: string | null = null;
+      try {
+        onboardingComplete = localStorage.getItem(`onboarding_${userId}`);
+      } catch (e) {
+        console.error('Error accessing localStorage:', e);
+      }
       
       // Skip onboarding if it's already complete OR if user has stories
       if (onboardingComplete || hasStories) {
         // If user has stories but no onboarding data, try to load user info from localStorage
         if (hasStories && !onboardingComplete) {
-          const savedAge = localStorage.getItem(`age_${userId}`);
-          const savedGenres = localStorage.getItem(`genres_${userId}`);
-          const savedReadingLevel = localStorage.getItem(`readingLevel_${userId}`);
-          const savedName = localStorage.getItem(`name_${userId}`);
+          let savedAge: string | null = null;
+          let savedGenres: string | null = null;
+          let savedReadingLevel: string | null = null;
+          let savedName: string | null = null;
+          try {
+            savedAge = localStorage.getItem(`age_${userId}`);
+            savedGenres = localStorage.getItem(`genres_${userId}`);
+            savedReadingLevel = localStorage.getItem(`readingLevel_${userId}`);
+            savedName = localStorage.getItem(`name_${userId}`);
+          } catch (e) {
+            console.error('Error accessing localStorage:', e);
+          }
           
           if (savedName) {
             testUser.name = savedName;
@@ -123,20 +149,25 @@ export default function Home() {
     } catch (error) {
       console.error('Home: Error initializing user', error);
       // Set a default user on error
-      setUser({
-        id: 'test-user-123',
-        name: 'Test User',
-        email: 'test@storybookland.com',
-        age: 8,
-        preferences: {
-          favoriteGenres: ['adventure', 'fantasy'],
-          readingLevel: 'intermediate',
-          theme: 'light',
-        },
-        achievements: [],
-        createdAt: new Date(),
-        lastActiveAt: new Date(),
-      });
+      try {
+        setUser({
+          id: 'test-user-123',
+          name: 'Test User',
+          email: 'test@storybookland.com',
+          age: 8,
+          preferences: {
+            favoriteGenres: ['adventure', 'fantasy'],
+            readingLevel: 'intermediate',
+            theme: 'light',
+          },
+          achievements: [],
+          createdAt: new Date(),
+          lastActiveAt: new Date(),
+        });
+      } catch (setError) {
+        console.error('Home: Error setting default user', setError);
+        setHasError(true);
+      }
       setIsLoading(false);
     }
   }, []);
@@ -169,6 +200,26 @@ export default function Home() {
     setUser(userToSave);
     setShowOnboarding(false);
   };
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-secondary-50 p-4">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">😕</div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Something went wrong</h1>
+          <p className="text-gray-600 mb-6">
+            There was an error loading the page. Please refresh your browser.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-block px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-semibold rounded-lg transition-all"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -205,7 +256,21 @@ export default function Home() {
           >
             <DashboardView user={user} />
           </motion.div>
-        ) : null}
+        ) : (
+          // Fallback loading state if user is null but not loading
+          <motion.div
+            key="loading-fallback"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="min-h-screen flex items-center justify-center"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full"
+            />
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

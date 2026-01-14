@@ -31,6 +31,7 @@ export interface Story {
     parentNames: string[];
   };
   isShared?: boolean;
+  isExample?: boolean; // Flag for example stories that shouldn't be edited/deleted
 }
 
 export interface StoryPage {

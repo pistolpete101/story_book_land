@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { saveUserStory, getUserStories } from '@/lib/storage';
 import { 
@@ -45,22 +45,78 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
   const [isFavorite, setIsFavorite] = useState(false);
   const [rating, setRating] = useState(book.rating || 0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const isExampleStory = (book as any).isExample === true;
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const [localPages, setLocalPages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Use the actual book data passed to the component
-  const pages = localPages.length > 0 ? localPages : ((book as any).chapters || (book as any).pages || []);
+  // Prioritize localPages, then check book structure
+  // Ensure pages is always an array using useMemo
+  const pages = useMemo((): any[] => {
+    if (localPages.length > 0 && Array.isArray(localPages)) {
+      return localPages;
+    }
+    if ((book as any).isExample && (book as any).pages) {
+      // Example stories use pages array
+      return Array.isArray((book as any).pages) ? (book as any).pages : [];
+    }
+    if ((book as any).pages && Array.isArray((book as any).pages) && (book as any).pages.length > 0) {
+      return (book as any).pages;
+    }
+    if ((book as any).chapters && Array.isArray((book as any).chapters)) {
+      return (book as any).chapters;
+    }
+    return [];
+  }, [localPages, book]);
   const hasVoiceRecording = (book as any).voiceRecordings && (book as any).voiceRecordings.length > 0;
 
   // Initialize local pages on mount
   useEffect(() => {
-    const initialPages = (book as any).chapters || (book as any).pages || [];
+    setIsLoading(true);
+    let initialPages: any[] = [];
+    
+    // Check if pages is an array first (most common case)
+    if (Array.isArray((book as any).pages) && (book as any).pages.length > 0) {
+      initialPages = (book as any).pages;
+      console.log('Loading pages array:', initialPages.length);
+    } else if ((book as any).isExample || book.id === 'example-story-witch') {
+      // Example stories - if pages is not an array, try to load from exampleStory
+      if (typeof (book as any).pages === 'number' || !Array.isArray((book as any).pages)) {
+        // Import exampleStory to get the pages array
+        import('@/lib/exampleStory').then(({ exampleStory }) => {
+          const examplePages = exampleStory.pages || [];
+          console.log('Loading example story pages from import:', examplePages.length);
+          setLocalPages(examplePages);
+          setIsLoading(false);
+        });
+        return;
+      }
+      initialPages = (book as any).pages || [];
+      console.log('Loading example story pages:', initialPages.length);
+    } else if ((book as any).chapters && Array.isArray((book as any).chapters) && (book as any).chapters.length > 0) {
+      // Otherwise use chapters
+      initialPages = (book as any).chapters;
+    }
+    
+    console.log('BookReadingView: Setting pages', { 
+      bookId: book.id, 
+      isExample: (book as any).isExample,
+      pagesCount: initialPages.length,
+      pagesType: typeof (book as any).pages,
+      isPagesArray: Array.isArray((book as any).pages),
+    });
+    
     setLocalPages(initialPages);
+    setIsLoading(false);
   }, [book]);
 
-  const currentPageData = pages[currentPage - 1];
+  // Safely get current page data (must be before early return)
+  const currentPageData = Array.isArray(pages) && pages.length > 0 && currentPage > 0 && currentPage <= pages.length
+    ? pages[currentPage - 1]
+    : null;
 
   // Initialize edited content when entering edit mode
   useEffect(() => {
@@ -68,12 +124,33 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
       setEditedContent(currentPageData.content || '');
       setEditedImage(currentPageData.image || null);
     }
-  }, [isEditing, currentPage]);
+  }, [isEditing, currentPage, currentPageData]);
 
   // Scroll to top when page changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage]);
+  
+  // If no pages and not loading, show error (must be after all hooks)
+  if (!Array.isArray(pages) || (pages.length === 0 && !isLoading)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">📚</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">No Pages Found</h1>
+          <p className="text-gray-600 mb-6">
+            This story doesn't have any pages yet.
+          </p>
+          <button
+            onClick={onBack}
+            className="inline-block px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-semibold rounded-lg transition-all"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleNextPage = () => {
     if (currentPage < pages.length) {
@@ -190,7 +267,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
       });
       
       // Add Table of Contents if there are chapters
-      if (pages.length > 0) {
+      if (Array.isArray(pages) && pages.length > 0) {
         allPages.push({
           id: 'toc',
           pageNumber: currentPageNum++,
@@ -205,19 +282,21 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
       }
       
       // Add all chapters with their settings
-      pages.forEach((chapter: any, index: number) => {
-        allPages.push({
-          id: chapter.id,
-          pageNumber: currentPageNum++,
-          title: chapter.title,
-          content: chapter.content,
-          chapterNumber: chapter.chapterNumber || index + 1,
-          image: chapter.image,
-          layout: chapter.layout || 'image-text',
-          settings: chapter.settings || {},
-          characters: chapter.characters || [],
+      if (Array.isArray(pages) && pages.length > 0) {
+        pages.forEach((chapter: any, index: number) => {
+          allPages.push({
+            id: chapter.id,
+            pageNumber: currentPageNum++,
+            title: chapter.title,
+            content: chapter.content,
+            chapterNumber: chapter.chapterNumber || index + 1,
+            image: chapter.image,
+            layout: chapter.layout || 'image-text',
+            settings: chapter.settings || {},
+            characters: chapter.characters || [],
+          });
         });
-      });
+      }
 
       // Create a print-friendly version with all pages
       const printWindow = window.open('', '_blank');
@@ -510,13 +589,15 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
             </div>
             <div className="flex items-center space-x-2">
               {!isEditing ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="p-2 hover:bg-amber-100 rounded-full transition-colors flex items-center justify-center"
-                  title="Edit inline"
-                >
-                  <Edit3 className="w-5 h-5" />
-                </button>
+                !isExampleStory && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="p-2 hover:bg-amber-100 rounded-full transition-colors flex items-center justify-center"
+                    title="Edit inline"
+                  >
+                    <Edit3 className="w-5 h-5" />
+                  </button>
+                )
               ) : (
                 <>
                   <button
@@ -542,7 +623,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
               >
                 <Printer className="w-5 h-5" />
               </button>
-              {onDelete && (
+              {onDelete && !isExampleStory && (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-500 flex items-center justify-center"
@@ -618,11 +699,13 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
           className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-8 md:p-12 border-2 border-amber-200 shadow-lg print-page"
         >
           <div className={`${fontSize === 'small' ? 'text-base' : fontSize === 'large' ? 'text-xl' : 'text-lg'} leading-relaxed`}>
-            {currentPageData && (
+            {currentPageData ? (
               <>
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                    Chapter {currentPageData.chapterNumber || currentPage}: {currentPageData.title}
+                    {currentPageData.chapterNumber 
+                      ? `Chapter ${currentPageData.chapterNumber}: ${currentPageData.title || 'Untitled'}`
+                      : currentPageData.title || `Page ${currentPage}`}
                   </h2>
                 </div>
                 
@@ -686,7 +769,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                   ) : (
                     <>
                       {/* View Mode */}
-                      {currentPageData.image ? (
+                      {currentPageData.image && currentPageData.image !== 'undefined' ? (
                         <>
                           {/* Image + Text Layout: Image above text */}
                           {currentPageData.layout === 'image-text' && (
@@ -694,13 +777,17 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                               <div className="mb-6">
                                 <img
                                   src={currentPageData.image}
-                                  alt={currentPageData.title}
+                                  alt={currentPageData.title || 'Page image'}
                                   className="w-full rounded-lg shadow-md object-cover"
                                   style={{ maxHeight: '400px' }}
+                                  onError={(e) => {
+                                    // Hide image if it fails to load
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
                                 />
                               </div>
                               <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                                {currentPageData.content}
+                                {currentPageData.content || ''}
                               </div>
                             </>
                           )}
@@ -709,14 +796,18 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                           {currentPageData.layout === 'text-image' && (
                             <>
                               <div className="text-gray-800 leading-relaxed whitespace-pre-wrap mb-6">
-                                {currentPageData.content}
+                                {currentPageData.content || ''}
                               </div>
                               <div className="mb-6">
                                 <img
                                   src={currentPageData.image}
-                                  alt={currentPageData.title}
+                                  alt={currentPageData.title || 'Page image'}
                                   className="w-full rounded-lg shadow-md object-cover"
                                   style={{ maxHeight: '400px' }}
+                                  onError={(e) => {
+                                    // Hide image if it fails to load
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
                                 />
                               </div>
                             </>
@@ -725,14 +816,26 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                       ) : (
                         /* No image - just text */
                         <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                          {currentPageData.content}
+                          {currentPageData.content || 'No content available'}
                         </div>
                       )}
                     </>
                   )}
                 </div>
 
+                {/* Page Number at Bottom */}
+                <div className="mt-8 pt-6 border-t border-amber-200 text-center">
+                  <p className="text-sm text-gray-600 font-medium">
+                    Page {currentPageData.pageNumber || currentPage} of {pages.length}
+                  </p>
+                </div>
+
               </>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📖</div>
+                <p className="text-gray-600">Loading page...</p>
+              </div>
             )}
           </div>
         </motion.div>
@@ -794,20 +897,22 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
         </div>
 
         {/* Page Indicators */}
-        <div className="flex justify-center mt-8 print-hide">
-          <div className="flex space-x-2">
-            {pages.map((_: unknown, index: number) => (
-              <button
-                key={index}
-                onClick={() => setCurrentPage(index + 1)}
-                className={`w-3 h-3 rounded-full transition-all cursor-pointer hover:scale-125 min-w-[12px] min-h-[12px] touch-manipulation ${
-                  index + 1 === currentPage ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gray-300 hover:bg-gray-400'
-                }`}
-                title={`Go to page ${index + 1}`}
-              />
-            ))}
+        {Array.isArray(pages) && pages.length > 0 && (
+          <div className="flex justify-center mt-8 print-hide">
+            <div className="flex space-x-2">
+              {pages.map((_: unknown, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentPage(index + 1)}
+                  className={`w-3 h-3 rounded-full transition-all cursor-pointer hover:scale-125 min-w-[12px] min-h-[12px] touch-manipulation ${
+                    index + 1 === currentPage ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  title={`Go to page ${index + 1}`}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

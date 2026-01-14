@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { User } from '@/types/User';
-import { ArrowRight, Plus, Trash2, Edit3, Image, X } from 'lucide-react';
+import { ArrowRight, Plus, Trash2, Edit3, Image, X, BookOpen, CheckCircle, AlertCircle } from 'lucide-react';
+import { checkGrammar, getWritingTips } from '@/lib/spellCheck';
 
 interface StoryWritingViewProps {
   user: User;
@@ -57,9 +58,22 @@ export default function StoryWritingView({
     },
   });
   const [showCharacterCards, setShowCharacterCards] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
+  const [grammarIssues, setGrammarIssues] = useState<{ issues: string[]; suggestions: string[] }>({ issues: [], suggestions: [] });
+  const [showSpellCheck, setShowSpellCheck] = useState(true);
 
   // Get characters from storyData
   const characters = storyData.characters || [];
+  
+  // Check grammar when content changes
+  useEffect(() => {
+    if (newChapter.content) {
+      const result = checkGrammar(newChapter.content);
+      setGrammarIssues(result);
+    } else {
+      setGrammarIssues({ issues: [], suggestions: [] });
+    }
+  }, [newChapter.content]);
 
   const layoutOptions = [
     { id: 'image-text', name: 'Image + Text', icon: Image, description: 'Image above text' },
@@ -778,19 +792,64 @@ export default function StoryWritingView({
               )}
               {/* Content */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Chapter Content
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Chapter Content
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowGuide(true)}
+                      className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      Writing Guide
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSpellCheck(!showSpellCheck)}
+                      className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                        showSpellCheck 
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {showSpellCheck ? '✓ Spell Check On' : 'Spell Check Off'}
+                    </button>
+                  </div>
+                </div>
                 <textarea
                   value={newChapter.content || ''}
                   onChange={(e) => setNewChapter(prev => ({ ...prev, content: e.target.value }))}
+                  spellCheck={showSpellCheck}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={6}
                   placeholder="Write your chapter content here..."
                 />
-                <div className="text-right text-sm text-gray-500 mt-1">
-                  {newChapter.content?.split(' ').filter(word => word.length > 0).length || 0} words • {newChapter.content?.length || 0} characters
+                <div className="flex items-center justify-between mt-1">
+                  <div className="text-sm text-gray-500">
+                    {newChapter.content?.split(' ').filter(word => word.length > 0).length || 0} words • {newChapter.content?.length || 0} characters
+                  </div>
+                  {grammarIssues.issues.length > 0 && (
+                    <div className="flex items-center gap-1 text-sm text-amber-600">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>{grammarIssues.issues.length} issue{grammarIssues.issues.length > 1 ? 's' : ''} found</span>
+                    </div>
+                  )}
                 </div>
+                {grammarIssues.issues.length > 0 && (
+                  <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="text-sm font-medium text-amber-800 mb-2">Writing Tips:</div>
+                    <ul className="text-sm text-amber-700 space-y-1">
+                      {grammarIssues.suggestions.slice(0, 3).map((suggestion, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-amber-500 mt-0.5">•</span>
+                          <span>{suggestion}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* Character Selection */}
@@ -1010,6 +1069,108 @@ export default function StoryWritingView({
                 </div>
               </div>
             )}
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Writing Guide Modal */}
+      {showGuide && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowGuide(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <BookOpen className="w-6 h-6 text-primary-600" />
+                Story Writing Guide
+              </h3>
+              <button
+                onClick={() => setShowGuide(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Writing Tips */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  Writing Tips
+                </h4>
+                <ul className="space-y-2">
+                  {getWritingTips().map((tip, index) => (
+                    <li key={index} className="flex items-start gap-3 text-gray-700">
+                      <span className="text-primary-500 font-bold mt-0.5">{index + 1}.</span>
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Example Story Structure */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">Story Structure</h4>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                  <div>
+                    <div className="font-semibold text-blue-900 mb-1">Beginning</div>
+                    <p className="text-sm text-blue-800">Introduce your characters and setting. What's happening? Where are they?</p>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-blue-900 mb-1">Middle</div>
+                    <p className="text-sm text-blue-800">What problem or adventure happens? How do your characters react?</p>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-blue-900 mb-1">End</div>
+                    <p className="text-sm text-blue-800">How is the problem solved? What did your characters learn?</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Example */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">Example</h4>
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <p className="text-sm text-purple-900 mb-2 font-semibold">Beginning:</p>
+                  <p className="text-sm text-purple-800 italic mb-4">
+                    "Once upon a time, in a deep forest, there lived a kind witch named Luna. She loved helping animals find their way home."
+                  </p>
+                  <p className="text-sm text-purple-900 mb-2 font-semibold">Middle:</p>
+                  <p className="text-sm text-purple-800 italic mb-4">
+                    "One day, a terrible storm destroyed the animals' homes. Luna used her magic to help rebuild them."
+                  </p>
+                  <p className="text-sm text-purple-900 mb-2 font-semibold">End:</p>
+                  <p className="text-sm text-purple-800 italic">
+                    "All the animals thanked Luna and learned that kindness is the most powerful magic of all."
+                  </p>
+                </div>
+              </div>
+
+              {/* Check Example Story */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm text-amber-900 mb-2">
+                  <strong>💡 Tip:</strong> Check out the example story "The Witch in the Forest" in your library to see how a complete story is written!
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowGuide(false)}
+                className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Got it!
+              </button>
+            </div>
           </motion.div>
         </motion.div>
       )}

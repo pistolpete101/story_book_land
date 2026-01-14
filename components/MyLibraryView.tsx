@@ -18,6 +18,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { getUserStories, saveUserStory, deleteUserStory } from '@/lib/storage';
+import { exampleStory } from '@/lib/exampleStory';
 import BookReadingView from './BookReadingView';
 import ParentInviteModal from './ParentInviteModal';
 
@@ -106,13 +107,30 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
     if (!user || !user.id) return;
     
     const userStories = getUserStories(user.id);
+    const allStories: any[] = [];
+    
+    // Always include the example story first
+    allStories.push({
+      ...exampleStory,
+      isExample: true,
+      isPublished: true,
+      progress: 0,
+      rating: 5,
+      lastRead: 'Never',
+      readingTime: 15,
+      difficulty: 'easy',
+      // Preserve pages array from exampleStory
+      pages: Array.isArray(exampleStory.pages) ? exampleStory.pages : 12,
+    });
+    
+    // Add user's stories
     if (userStories && userStories.length > 0) {
-      setBooks(userStories);
+      allStories.push(...userStories);
     } else if (publishedStories && publishedStories.length > 0) {
-      setBooks(publishedStories);
-    } else {
-      setBooks([]);
+      allStories.push(...publishedStories);
     }
+    
+    setBooks(allStories);
   }, [user?.id, publishedStories]);
 
   const handleInviteParent = (story: any) => {
@@ -146,6 +164,10 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
   };
 
   const handleDeleteStory = (bookId: string) => {
+    // Don't allow deleting example stories
+    const book = books.find(b => b.id === bookId);
+    if (book?.isExample) return;
+    
     if (deleteConfirm === bookId) {
       // Confirm deletion
       deleteUserStory(user.id, bookId);
@@ -212,19 +234,104 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
   }, []);
 
   if (selectedBook) {
-    const book = books.find(b => b.id === selectedBook);
+    let book = books.find(b => b.id === selectedBook);
+    
+    // If book not found and it's the example story, load it directly
+    if (!book && selectedBook === 'example-story-witch') {
+      console.log('Loading example story directly');
+      book = {
+        ...exampleStory,
+        isExample: true,
+        isPublished: true,
+        progress: 0,
+        rating: 5,
+        lastRead: 'Never',
+        readingTime: 15,
+        difficulty: 'easy',
+        // Preserve pages array from exampleStory - don't overwrite with number
+        pages: exampleStory.pages, // Always use the array from exampleStory
+        author: exampleStory.author?.name || 'Story Book Land Team',
+      };
+    }
+    
+    // If it's the example story and pages is a number, replace with array
+    if (book && book.id === 'example-story-witch' && typeof book.pages === 'number') {
+      book = {
+        ...book,
+        pages: exampleStory.pages, // Replace number with actual pages array
+      };
+    }
+    
+    console.log('Selected book:', selectedBook, 'Found book:', book);
+    
     if (book) {
+      // Ensure book has required properties for BookReadingView
+      // For example stories, always use the pages array from exampleStory
+      let pagesArray: any[] = [];
+      if (book.id === 'example-story-witch') {
+        pagesArray = exampleStory.pages || [];
+      } else {
+        pagesArray = Array.isArray(book.pages) ? book.pages : [];
+      }
+      const pagesCount = pagesArray.length || (typeof book.pages === 'number' ? book.pages : 12);
+      
+      const bookForReading: any = {
+        ...book,
+        id: book.id || selectedBook,
+        title: book.title || 'Untitled Story',
+        author: typeof book.author === 'object' ? book.author?.name || 'Unknown' : book.author || 'Unknown',
+        genre: book.genre || 'fantasy',
+        coverImage: book.coverImage || book.coverImageBack || '',
+        readingTime: book.readingTime || 15,
+        difficulty: book.difficulty || 'easy',
+        isPublished: book.isPublished !== undefined ? book.isPublished : true,
+        progress: book.progress || 0,
+        rating: book.rating || 5,
+        lastRead: book.lastRead || 'Never',
+        // Always use pages array for example story, otherwise use what's available
+        pages: pagesArray.length > 0 ? pagesArray : pagesCount,
+      };
+      
+      console.log('Opening BookReadingView with pages:', {
+        isArray: Array.isArray(bookForReading.pages),
+        length: Array.isArray(bookForReading.pages) ? bookForReading.pages.length : bookForReading.pages,
+      });
+      
       return (
         <BookReadingView
           user={user} 
-          book={book} 
-          onBack={() => setSelectedBook(null)}
+          book={bookForReading} 
+          onBack={() => {
+            console.log('Going back from book reading');
+            setSelectedBook(null);
+          }}
           onDelete={(bookId) => {
+            // Don't allow deleting example story
+            if (bookId === 'example-story-witch') return;
             deleteUserStory(user.id, bookId);
             setBooks(prev => prev.filter(b => b.id !== bookId));
             setSelectedBook(null);
           }}
         />
+      );
+    } else {
+      // Book not found - show error and go back
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-secondary-50 p-4">
+          <div className="text-center max-w-md">
+            <div className="text-6xl mb-4">📚</div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Story Not Found</h1>
+            <p className="text-gray-600 mb-6">
+              The story you're looking for couldn't be found.
+            </p>
+            <button
+              onClick={() => setSelectedBook(null)}
+              className="inline-block px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-semibold rounded-lg transition-all"
+            >
+              Go Back to Library
+            </button>
+          </div>
+        </div>
       );
     }
   }
@@ -318,7 +425,11 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
                              getGenreStyle(book.genre).border.includes('yellow') ? '#fde047' :
                              '#fcd34d',
               }}
-              onClick={() => setSelectedBook(book.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('Opening book:', book.id, book);
+                setSelectedBook(book.id);
+              }}
             >
               <div className="relative">
                 {book.coverImage ? (
@@ -353,17 +464,23 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
                   )}
                 </div>
                 <div className="absolute top-2 right-2 flex flex-col items-end gap-1.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleInviteParent(book);
-                    }}
-                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-colors flex-shrink-0 flex items-center justify-center"
-                    title="Share with parents"
-                  >
-                    <Share2 className="w-4 h-4 text-primary-600" />
-                  </button>
-                  {book.isPublished ? (
+                  {!book.isExample && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleInviteParent(book);
+                      }}
+                      className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-colors flex-shrink-0 flex items-center justify-center"
+                      title="Share with parents"
+                    >
+                      <Share2 className="w-4 h-4 text-primary-600" />
+                    </button>
+                  )}
+                  {book.isExample ? (
+                    <div className="bg-purple-500 text-white px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap">
+                      Example Story
+                    </div>
+                  ) : book.isPublished ? (
                     <div className="bg-green-500 text-white px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap">
                       Published
                     </div>
@@ -415,7 +532,18 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
                 </div>
                 
                 <div className="mt-3 flex space-x-2">
-                  {!book.isPublished ? (
+                  {book.isExample ? (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('Opening example story:', book.id, book);
+                        setSelectedBook(book.id);
+                      }}
+                      className="flex-1 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm"
+                    >
+                      Read Example
+                    </button>
+                  ) : !book.isPublished ? (
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -429,13 +557,17 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
                     </button>
                   ) : (
                     <button 
-                      onClick={() => setSelectedBook(book.id)}
+                      onClick={(e) => {
+                e.stopPropagation();
+                console.log('Opening book:', book.id, book);
+                setSelectedBook(book.id);
+              }}
                       className="flex-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm"
                     >
                       {book.progress === 0 ? 'Start Reading' : book.progress === 100 ? 'Read Again' : 'Continue'}
                     </button>
                   )}
-                  {book.isPublished && (
+                  {!book.isExample && book.isPublished && (
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -448,20 +580,22 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
                       Edit
                     </button>
                   )}
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteStory(book.id);
-                    }}
-                    className={`p-2 rounded-lg transition-colors ${
-                      deleteConfirm === book.id
-                        ? 'bg-red-500 text-white'
-                        : 'hover:bg-red-100 text-red-500'
-                    }`}
-                    title={deleteConfirm === book.id ? 'Click again to confirm' : 'Delete story'}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {!book.isExample && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteStory(book.id);
+                      }}
+                      className={`p-2 rounded-lg transition-colors ${
+                        deleteConfirm === book.id
+                          ? 'bg-red-500 text-white'
+                          : 'hover:bg-red-100 text-red-500'
+                      }`}
+                      title={deleteConfirm === book.id ? 'Click again to confirm' : 'Delete story'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
