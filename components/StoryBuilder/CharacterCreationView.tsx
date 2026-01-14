@@ -390,8 +390,9 @@ export default function CharacterCreationView({
                         role: newRole,
                         // Clear traits when role changes so user can select traits matching the new role
                         personality: {
-                          ...prev.personality,
-                          traits: []
+                          traits: [],
+                          likes: prev.personality?.likes || [],
+                          dislikes: prev.personality?.dislikes || [],
                         }
                       }));
                       if (newRole !== 'other') {
@@ -416,8 +417,9 @@ export default function CharacterCreationView({
                         setNewCharacter(prev => ({
                           ...prev,
                           personality: {
-                            ...prev.personality,
-                            traits: []
+                            traits: [],
+                            likes: prev.personality?.likes || [],
+                            dislikes: prev.personality?.dislikes || [],
                           }
                         }));
                       }}
