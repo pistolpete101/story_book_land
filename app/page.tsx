@@ -20,6 +20,14 @@ export default function Home() {
       return;
     }
     
+    let loadingTimeout: NodeJS.Timeout | null = null;
+    
+    // Use a timeout to ensure loading completes even if there are errors
+    loadingTimeout = setTimeout(() => {
+      console.log('Loading timeout - setting isLoading to false');
+      setIsLoading(false);
+    }, 2000);
+    
     try {
       const userId = 'test-user-123'; // Consistent user ID
       
@@ -145,12 +153,11 @@ export default function Home() {
       } else {
         setShowOnboarding(true);
       }
-      setIsLoading(false);
     } catch (error) {
       console.error('Home: Error initializing user', error);
-      // Set a default user on error
+      // Set a default user on error - don't set hasError, just use defaults
       try {
-        setUser({
+        const defaultUser: User = {
           id: 'test-user-123',
           name: 'Test User',
           email: 'test@storybookland.com',
@@ -163,10 +170,18 @@ export default function Home() {
           achievements: [],
           createdAt: new Date(),
           lastActiveAt: new Date(),
-        });
+        };
+        setUser(defaultUser);
+        setShowOnboarding(false);
       } catch (setError) {
         console.error('Home: Error setting default user', setError);
-        setHasError(true);
+        // Only set error if we absolutely can't continue
+        // setHasError(true);
+      }
+    } finally {
+      // Always set loading to false, even if there was an error
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
       }
       setIsLoading(false);
     }

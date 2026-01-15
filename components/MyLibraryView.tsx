@@ -110,6 +110,7 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
     const allStories: any[] = [];
     
     // Always include the example story first
+    // IMPORTANT: Always preserve the pages array, never use a number
     allStories.push({
       ...exampleStory,
       isExample: true,
@@ -119,8 +120,8 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
       lastRead: 'Never',
       readingTime: 15,
       difficulty: 'easy',
-      // Preserve pages array from exampleStory
-      pages: Array.isArray(exampleStory.pages) ? exampleStory.pages : 12,
+      // CRITICAL: Always use the pages array from exampleStory, never overwrite with number
+      pages: exampleStory.pages, // This is already an array with 12 pages
     });
     
     // Add user's stories
@@ -194,8 +195,9 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
   ];
 
   const filteredBooks = books.filter(book => {
-    const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         book.author.toLowerCase().includes(searchTerm.toLowerCase());
+    const authorName = typeof book.author === 'object' ? book.author?.name || '' : book.author || '';
+    const matchesSearch = (book.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         authorName.toLowerCase().includes(searchTerm.toLowerCase());
     
     switch (selectedFilter) {
       case 'reading':
@@ -266,15 +268,17 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
     
     if (book) {
       // Ensure book has required properties for BookReadingView
-      // For example stories, always use the pages array from exampleStory
+      // For example stories, ALWAYS use the pages array from exampleStory
       let pagesArray: any[] = [];
       if (book.id === 'example-story-witch') {
+        // Force use exampleStory.pages array
         pagesArray = exampleStory.pages || [];
+        console.log('Example story - using pages from exampleStory:', pagesArray.length);
       } else {
         pagesArray = Array.isArray(book.pages) ? book.pages : [];
       }
-      const pagesCount = pagesArray.length || (typeof book.pages === 'number' ? book.pages : 12);
       
+      // For example story, NEVER use pagesCount - always use the array
       const bookForReading: any = {
         ...book,
         id: book.id || selectedBook,
@@ -288,13 +292,18 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
         progress: book.progress || 0,
         rating: book.rating || 5,
         lastRead: book.lastRead || 'Never',
-        // Always use pages array for example story, otherwise use what's available
-        pages: pagesArray.length > 0 ? pagesArray : pagesCount,
+        // For example story, ALWAYS use pages array, never fallback to count
+        pages: book.id === 'example-story-witch' ? pagesArray : (pagesArray.length > 0 ? pagesArray : (typeof book.pages === 'number' ? book.pages : 12)),
       };
       
-      console.log('Opening BookReadingView with pages:', {
-        isArray: Array.isArray(bookForReading.pages),
-        length: Array.isArray(bookForReading.pages) ? bookForReading.pages.length : bookForReading.pages,
+      console.log('Opening BookReadingView with bookForReading:', {
+        id: bookForReading.id,
+        title: bookForReading.title,
+        isExample: bookForReading.isExample,
+        pagesIsArray: Array.isArray(bookForReading.pages),
+        pagesLength: Array.isArray(bookForReading.pages) ? bookForReading.pages.length : bookForReading.pages,
+        pagesType: typeof bookForReading.pages,
+        pagesArray: Array.isArray(bookForReading.pages) ? bookForReading.pages.slice(0, 2).map((p: any) => ({ id: p.id, title: p.title })) : 'not array',
       });
       
       return (
@@ -527,7 +536,7 @@ export default function MyLibraryView({ user, onBack, publishedStories = [], onE
                 </div>
                 
                 <div className="flex items-center justify-between text-sm text-gray-500">
-                  <span>{book.pages} pages</span>
+                  <span>{Array.isArray(book.pages) ? book.pages.length : (typeof book.pages === 'number' ? book.pages : 0)} pages</span>
                   <span>{book.lastRead}</span>
                 </div>
                 

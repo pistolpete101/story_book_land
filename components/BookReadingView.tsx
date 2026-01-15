@@ -40,12 +40,29 @@ interface BookReadingViewProps {
 }
 
 export default function BookReadingView({ book, onBack, onDelete, user }: BookReadingViewProps) {
+  if (!book) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">📚</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">No Book Selected</h1>
+          <button
+            onClick={onBack}
+            className="inline-block px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-semibold rounded-lg transition-all"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const [currentPage, setCurrentPage] = useState(1);
   const [fontSize, setFontSize] = useState('medium');
   const [isFavorite, setIsFavorite] = useState(false);
-  const [rating, setRating] = useState(book.rating || 0);
+  const [rating, setRating] = useState(book?.rating || 0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const isExampleStory = (book as any).isExample === true;
+  const isExampleStory = (book as any)?.isExample === true;
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [editedImage, setEditedImage] = useState<string | null>(null);
@@ -56,19 +73,32 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
   // Prioritize localPages, then check book structure
   // Ensure pages is always an array using useMemo
   const pages = useMemo((): any[] => {
+    // First priority: use localPages if available
     if (localPages.length > 0 && Array.isArray(localPages)) {
+      console.log('Using localPages:', localPages.length);
       return localPages;
     }
-    if ((book as any).isExample && (book as any).pages) {
-      // Example stories use pages array
-      return Array.isArray((book as any).pages) ? (book as any).pages : [];
-    }
-    if ((book as any).pages && Array.isArray((book as any).pages) && (book as any).pages.length > 0) {
+    
+    // Second priority: check if book.pages is an array
+    if (Array.isArray((book as any).pages) && (book as any).pages.length > 0) {
+      console.log('Using book.pages array:', (book as any).pages.length);
       return (book as any).pages;
     }
+    
+    // Third priority: for example stories, try to get pages from exampleStory
+    if ((book as any).isExample || book.id === 'example-story-witch') {
+      // If pages is a number or not an array, we'll handle it in useEffect
+      console.log('Example story detected, pages type:', typeof (book as any).pages);
+      return Array.isArray((book as any).pages) ? (book as any).pages : [];
+    }
+    
+    // Fourth priority: use chapters if available
     if ((book as any).chapters && Array.isArray((book as any).chapters)) {
+      console.log('Using chapters:', (book as any).chapters.length);
       return (book as any).chapters;
     }
+    
+    console.log('No pages found, returning empty array');
     return [];
   }, [localPages, book]);
   const hasVoiceRecording = (book as any).voiceRecordings && (book as any).voiceRecordings.length > 0;
@@ -81,24 +111,34 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
     // Check if pages is an array first (most common case)
     if (Array.isArray((book as any).pages) && (book as any).pages.length > 0) {
       initialPages = (book as any).pages;
-      console.log('Loading pages array:', initialPages.length);
+      console.log('Loading pages array directly:', initialPages.length);
     } else if ((book as any).isExample || book.id === 'example-story-witch') {
-      // Example stories - if pages is not an array, try to load from exampleStory
-      if (typeof (book as any).pages === 'number' || !Array.isArray((book as any).pages)) {
+      // Example stories - if pages is not an array, load from exampleStory
+      if (typeof (book as any).pages === 'number' || !Array.isArray((book as any).pages) || (book as any).pages.length === 0) {
         // Import exampleStory to get the pages array
+        console.log('Importing exampleStory to get pages...');
         import('@/lib/exampleStory').then(({ exampleStory }) => {
           const examplePages = exampleStory.pages || [];
-          console.log('Loading example story pages from import:', examplePages.length);
-          setLocalPages(examplePages);
+          console.log('Loaded example story pages from import:', examplePages.length);
+          if (examplePages.length > 0) {
+            setLocalPages(examplePages);
+            setIsLoading(false);
+          } else {
+            console.error('Example story pages array is empty!');
+            setIsLoading(false);
+          }
+        }).catch((error) => {
+          console.error('Error importing exampleStory:', error);
           setIsLoading(false);
         });
         return;
       }
       initialPages = (book as any).pages || [];
-      console.log('Loading example story pages:', initialPages.length);
+      console.log('Using example story pages from book:', initialPages.length);
     } else if ((book as any).chapters && Array.isArray((book as any).chapters) && (book as any).chapters.length > 0) {
       // Otherwise use chapters
       initialPages = (book as any).chapters;
+      console.log('Using chapters:', initialPages.length);
     }
     
     console.log('BookReadingView: Setting pages', { 
@@ -107,9 +147,12 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
       pagesCount: initialPages.length,
       pagesType: typeof (book as any).pages,
       isPagesArray: Array.isArray((book as any).pages),
+      bookPagesLength: Array.isArray((book as any).pages) ? (book as any).pages.length : 'not array'
     });
     
-    setLocalPages(initialPages);
+    if (initialPages.length > 0) {
+      setLocalPages(initialPages);
+    }
     setIsLoading(false);
   }, [book]);
 
@@ -126,9 +169,17 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
     }
   }, [isEditing, currentPage, currentPageData]);
 
-  // Scroll to top when page changes
+  // Scroll to top when page changes - use instant scroll for better UX
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Use requestAnimationFrame to ensure scroll happens after React renders
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      // Also scroll the reading area container to top if it exists
+      const readingArea = document.querySelector('.print-reading-area');
+      if (readingArea) {
+        readingArea.scrollTop = 0;
+      }
+    });
   }, [currentPage]);
   
   // If no pages and not loading, show error (must be after all hooks)
@@ -154,12 +205,16 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
 
   const handleNextPage = () => {
     if (currentPage < pages.length) {
+      // Scroll to top immediately before changing page
+      window.scrollTo({ top: 0, behavior: 'instant' });
       setCurrentPage(currentPage + 1);
     }
   };
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
+      // Scroll to top immediately before changing page
+      window.scrollTo({ top: 0, behavior: 'instant' });
       setCurrentPage(currentPage - 1);
     }
   };
@@ -638,7 +693,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
           {/* Progress Bar */}
           <div className="mt-4">
             <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-              <span>Chapter {currentPage} of {pages.length}</span>
+              <span>Chapter {String(currentPage)} of {String(Array.isArray(pages) ? pages.length : 0)}</span>
               <span>{Math.round(progressPercentage)}% complete</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -696,7 +751,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3 }}
-          className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-8 md:p-12 border-2 border-amber-200 shadow-lg print-page"
+          className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-8 md:p-12 border-2 border-amber-200 shadow-lg print-page min-h-[60vh]"
         >
           <div className={`${fontSize === 'small' ? 'text-base' : fontSize === 'large' ? 'text-xl' : 'text-lg'} leading-relaxed`}>
             {currentPageData ? (
@@ -704,8 +759,8 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">
                     {currentPageData.chapterNumber 
-                      ? `Chapter ${currentPageData.chapterNumber}: ${currentPageData.title || 'Untitled'}`
-                      : currentPageData.title || `Page ${currentPage}`}
+                      ? `Chapter ${String(currentPageData.chapterNumber)}: ${String(currentPageData.title || 'Untitled')}`
+                      : String(currentPageData.title || `Page ${currentPage}`)}
                   </h2>
                 </div>
                 
@@ -826,7 +881,7 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
                 {/* Page Number at Bottom */}
                 <div className="mt-8 pt-6 border-t border-amber-200 text-center">
                   <p className="text-sm text-gray-600 font-medium">
-                    Page {currentPageData.pageNumber || currentPage} of {pages.length}
+                    Page {currentPageData?.pageNumber ? String(currentPageData.pageNumber) : String(currentPage)} of {String(Array.isArray(pages) ? pages.length : 0)}
                   </p>
                 </div>
 
@@ -840,61 +895,66 @@ export default function BookReadingView({ book, onBack, onDelete, user }: BookRe
           </div>
         </motion.div>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between mt-8 no-print print-hide">
-          {currentPage > 1 ? (
-            <button
-              onClick={handlePreviousPage}
-              className="flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all bg-amber-100 hover:bg-amber-200 text-amber-700"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>Previous</span>
-            </button>
-          ) : (
-            <div></div>
-          )}
+        {/* Navigation - Fixed at bottom for easy access */}
+        <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-br from-amber-50 to-orange-50 pt-4 pb-4 px-4 border-t-2 border-amber-200 shadow-lg no-print print-hide z-50 safe-area-inset-bottom">
+          <div className="flex items-center justify-between max-w-4xl mx-auto">
+            {currentPage > 1 ? (
+              <button
+                onClick={handlePreviousPage}
+                className="flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all bg-amber-100 hover:bg-amber-200 text-amber-700"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="hidden sm:inline">Previous</span>
+              </button>
+            ) : (
+              <div></div>
+            )}
 
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={handleFavorite}
-              className={`p-2 rounded-full transition-colors flex items-center justify-center ${
-                isFavorite 
-                  ? 'bg-red-100 text-red-500' 
-                  : 'bg-amber-100 hover:bg-amber-200 text-gray-600'
-              }`}
-            >
-              <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
-            </button>
-            <button 
-              onClick={handlePrint}
-              className="p-2 bg-amber-100 hover:bg-amber-200 text-gray-600 rounded-full transition-colors flex items-center justify-center"
-              title="Print story"
-            >
-              <Printer className="w-5 h-5" />
-            </button>
-            <div className="flex items-center space-x-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  onClick={() => handleRating(star)}
-                  className={`transition-colors flex items-center justify-center ${
-                    star <= rating ? 'text-amber-500' : 'text-gray-300'
-                  }`}
-                >
-                  <Star className={`w-5 h-5 ${star <= rating ? 'fill-current' : ''}`} />
-                </button>
-              ))}
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={handleFavorite}
+                className={`p-2 rounded-full transition-colors flex items-center justify-center ${
+                  isFavorite 
+                    ? 'bg-red-100 text-red-500' 
+                    : 'bg-amber-100 hover:bg-amber-200 text-gray-600'
+                }`}
+              >
+                <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+              </button>
+              <button 
+                onClick={handlePrint}
+                className="p-2 bg-amber-100 hover:bg-amber-200 text-gray-600 rounded-full transition-colors flex items-center justify-center"
+                title="Print story"
+              >
+                <Printer className="w-5 h-5" />
+              </button>
+              <div className="flex items-center space-x-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => handleRating(star)}
+                    className={`transition-colors flex items-center justify-center ${
+                      star <= rating ? 'text-amber-500' : 'text-gray-300'
+                    }`}
+                  >
+                    <Star className={`w-5 h-5 ${star <= rating ? 'fill-current' : ''}`} />
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <button
-            onClick={currentPage === pages.length ? handleFinished : handleNextPage}
-            className="hidden sm:flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white"
-          >
-            <span>{currentPage === pages.length ? 'Finished!' : 'Next'}</span>
-            {currentPage < pages.length && <ArrowRight className="w-5 h-5" />}
-          </button>
+            <button
+              onClick={currentPage === pages.length ? handleFinished : handleNextPage}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white"
+            >
+              <span>{currentPage === pages.length ? 'Finished!' : 'Next'}</span>
+              {currentPage < pages.length && <ArrowRight className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+        
+        {/* Spacer to prevent content from being hidden behind fixed navigation */}
+        <div className="h-24 no-print print-hide"></div>
 
         {/* Page Indicators */}
         {Array.isArray(pages) && pages.length > 0 && (
